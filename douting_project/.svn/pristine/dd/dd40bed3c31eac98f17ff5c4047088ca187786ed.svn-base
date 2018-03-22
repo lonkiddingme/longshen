@@ -1,0 +1,26 @@
+package com.cdvcloud.douting.service;
+
+import java.util.Map;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.rms.util.ResponseObject;
+
+/**
+ * 
+ * 粉丝管理
+ * 
+ */
+public interface FansAppService extends BaseService{
+
+	
+	/**
+	 * 新增粉丝
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	ResponseObject updateTaskProgressByFansId(CommonParameters commonParameters,Map<String, Object> param);
+
+
+
+}

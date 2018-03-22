@@ -1,0 +1,131 @@
+package com.cdvcloud.douting.dao.impl;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.dao.RedisUtilDao;
+import com.cdvcloud.douting.domain.Content;
+import com.cdvcloud.rms.util.DateUtil;
+import com.cdvcloud.rms.util.JSONUtils;
+
+import redis.clients.jedis.JedisCluster;
+/**
+ * 用于redis操作
+ * RefisUtilDaoImpl
+ * @Description 
+ * @author wlf
+ * @data 2017-11-16 下午1:56:36
+ */
+@Repository
+public class RedisUtilDaoImpl implements RedisUtilDao {
+	@Autowired
+	private JedisCluster jedisCluster;
+	/**
+	 * 记录内容最新评论时间
+	 * @param docid
+	 */
+	public void NewestCommentedContent(String docid){
+		long utime_Long = System.currentTimeMillis();
+		String utime = DateUtil.getCurrentDateTime();
+		Map<String, Object> timeMap = new HashMap<String, Object>();
+		timeMap.put(Content.UTIME, utime);
+		timeMap.put(Content.UTIME_LONG, utime_Long);
+		String json = JSONUtils.toJson(timeMap);
+		jedisCluster.hset(Content.NEWESTCOMMENTTIME, docid, json);
+		String outTime = Configuration.getConfigValue(Constants.NEWCOMMENTOUTTIME);
+		Integer longTime = Integer.parseInt(outTime);
+		jedisCluster.expire(Content.NEWESTCOMMENTTIME, longTime);
+	}
+	/**
+	 * 发布公告
+	 * @param pid	
+	 * @param content
+	 */
+	@Override
+	public void publishNotice(String pid, String content) {
+		jedisCluster.set(Constants.LIVENOTICE+"_"+pid, content);
+		Integer longTime = 60*60*24;
+		jedisCluster.expire(Content.NEWESTCOMMENTTIME, longTime);
+	}
+	/**
+	 * 查询公告
+	 * @param pid
+	 * @return
+	 */
+	@Override
+	public String getNotice(String pid) {
+		String content = jedisCluster.get(Constants.LIVENOTICE+"_"+pid);
+		return content;
+	}
+	/**
+	 * 直播间粉丝禁言
+	 */
+	@Override
+	public void prohibitFans(String pid,String fansId,String name,String phone) {
+		Map<String, Object> fansMap = new HashMap<String, Object>();
+		fansMap.put(Constants.NAME, name);
+		fansMap.put(Constants.PHONE, phone);
+		fansMap.put(Constants.FANSID, fansId);
+		String json = JSONUtils.toJson(fansMap);
+		jedisCluster.lpush(Constants.PROHIBIFANS+"_"+pid, json);
+		Integer longTime = 60*60*24;
+		jedisCluster.expire(Constants.PROHIBIFANS+"_"+pid, longTime);
+	}
+	/**
+	 * 直播间粉丝禁言解除
+	 */
+	@Override
+	public void relieveProhibit(String pid, String fansId) {
+		List<String> result= jedisCluster.lrange(Constants.PROHIBIFANS+"_"+pid, 0, -1);
+		for (String string : result) {
+			if(string.indexOf(fansId)>0){
+				jedisCluster.lrem(Constants.PROHIBIFANS+"_"+pid, 0, string);
+				break;
+			}
+		}
+	}
+	/**
+	 * 添加直播间商品
+	 */
+	@Override
+	public void createLiveGoods(String pid, String goodsId, Map<String, Object> map) {
+		map.put("goodsId", goodsId);
+		String json = JSONUtils.toJson(map);
+		jedisCluster.lpush(Constants.LIVEGOODS+"_"+pid, json);
+		Integer longTime = 60*60*24;
+		jedisCluster.expire(Constants.LIVEGOODS+"_"+pid, longTime);
+	}
+	/**
+	 * 删除直播间商品
+	 */
+	@Override
+	public void deleteLiveGoods(String pid, String goodsId) {
+		List<String> result= jedisCluster.lrange(Constants.LIVEGOODS+"_"+pid, 0, -1);
+		for (String string : result) {
+			if(string.indexOf(goodsId)>0){
+				jedisCluster.lrem(Constants.LIVEGOODS+"_"+pid, 0, string);
+				break;
+			}
+		}
+	}
+	/**
+	 * 查询直播间粉丝禁言列表
+	 */
+	@Override
+	public List<String> queryProhibitFansList(String pid) {
+		return jedisCluster.lrange(Constants.PROHIBIFANS+"_"+pid, 0, -1);
+	}
+	/**
+	 * 查询直播间商品列表
+	 */
+	@Override
+	public List<String> queryLiveGoodsList(String pid) {
+		return jedisCluster.lrange(Constants.LIVEGOODS+"_"+pid, 0, -1);
+	}
+}

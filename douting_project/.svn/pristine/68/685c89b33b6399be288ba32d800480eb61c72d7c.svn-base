@@ -1,0 +1,20 @@
+package com.cdvcloud.douting.service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * @author SongYuanKun
+ * @date 2017/11/12
+ */
+public interface BroadcastAppService extends BaseService {
+
+    /**
+     * @param commonParameters
+     * @param jsonMap
+     * @return
+     */
+    Map<String,Object> queryBroadcastPost(CommonParameters commonParameters, Map<String, Object> jsonMap);
+}

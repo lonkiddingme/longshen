@@ -1,0 +1,15 @@
+$(function(){
+    $("audio").each(function(){
+        var audioID=$(this).attr("id");
+        audio_load(audioID);
+    })
+});
+$(function(){
+    // $(".bannar").height($(".bannar").width()/1.78);
+    // $(".scroll-cont").height($(window).height()-$(".bannar").height()-$(".audio-play ").height());
+    // $(".audio-play-btn i,.audio-text p i,.thumbs-up i").click(function(){
+    //     $(this).toggleClass('active');
+    // })
+});
+
+

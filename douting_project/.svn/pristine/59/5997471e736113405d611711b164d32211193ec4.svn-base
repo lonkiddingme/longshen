@@ -1,0 +1,114 @@
+package com.cdvcloud.douting.web.api;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.servlet.http.HttpSession;
+
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.douting.domain.VideoRoom;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 直播间直播通道 --  回调管理
+ *
+ * @author zhangyuelong
+ */
+
+@Controller
+@RequestMapping(value = "/{companyId}/{appCode}/{userId}/{serviceCode}/")
+public class CallBackApiController {
+    private static final Logger logger = Logger.getLogger("ValidateCommonParam");
+
+
+    @Autowired
+    private VideoRoomDao videoRoomDao;
+
+    /**
+     * 回调
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @SuppressWarnings("unchecked")
+	@ResponseBody
+    @RequestMapping("v1/liveChannel/callback")
+    public ResponseObject callback(HttpSession session, CommonParameters commonParameters, @RequestBody String strJson) {
+    	ResponseObject resObj = new ResponseObject();
+    	try {
+			Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+			if(!StringUtil.isEmpty(jsonMap)){
+				if(String.valueOf(jsonMap.get("code")).equals(Constants.SZERO)){
+					Map<String,Object> mapData=(Map<String, Object>) jsonMap.get("data");
+					String type=String.valueOf(mapData.get("type"));
+					if("bind".equals(type)){
+						bind(mapData);
+					}else{
+						unbind(mapData);
+					}
+				}
+			}
+			ValidateCommonParam.executeSuccess(resObj, "");
+		} catch (Exception e) {
+			e.printStackTrace();
+			ValidateCommonParam.innerError(resObj);
+            logger.error("class : ColumnApiController --> method : createColumn处理异常！");
+		}
+    	return resObj;
+    }
+    
+    /**
+     * type为直播间状态  1为正在直播 0为结束直播
+     * @param map
+     */
+    //绑定直播间通道
+    public void bind(Map<String,Object> map){
+    	String channId=String.valueOf(map.get("channelId"));
+		String virtualId=String.valueOf(map.get("virtualId"));
+		Map<String,Object> wherelive=new HashMap<String,Object>();
+		wherelive.put("virtualId", virtualId);
+		Map<String,Object> livemap=videoRoomDao.queryVideoRoom(wherelive);
+		Map<String,Object> others=new HashMap<String,Object>();
+		if(!livemap.isEmpty()){
+			Map<String,Object> update=new HashMap<String,Object>();
+			String id = String.valueOf(livemap.get(VideoRoom.ID));
+			update.put("type", 1);
+			update.put("channelId",channId);
+			update.put("virtualId",virtualId);
+			others.put("others", update);
+			videoRoomDao.updateVideoRoomById(id,others);
+		}
+    }
+    //解除绑定
+    public void unbind(Map<String,Object> map){
+//    	String channId=String.valueOf(map.get("channelId"));
+		String virtualId=String.valueOf(map.get("virtualId"));
+		Map<String,Object> wherelive=new HashMap<String,Object>();
+		wherelive.put("virtualId", virtualId);
+		Map<String,Object> livemap=videoRoomDao.queryVideoRoom(wherelive);
+		Map<String,Object> others=new HashMap<String,Object>();
+		if(!livemap.isEmpty()){
+			Map<String,Object> update=new HashMap<String,Object>();
+			String id = String.valueOf(livemap.get(VideoRoom.ID));
+			update.put("type", 0);
+			update.put("channelId","");
+			update.put("virtualId","");
+			others.put("others", update);
+			videoRoomDao.updateVideoRoomById(id,others);
+		}
+    }
+}

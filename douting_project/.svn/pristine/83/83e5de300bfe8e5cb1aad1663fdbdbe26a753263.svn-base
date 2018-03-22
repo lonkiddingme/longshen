@@ -1,0 +1,116 @@
+package com.cdvcloud.douting.service.task;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 定时红包
+ * Activity
+ * @Description 
+ * @author wlf
+ * @data 2017-11-15 下午3:32:06
+ */
+public class TimedRedEnvelope implements Runnable {
+
+	  
+	
+	 private CommonParameters commonParameters;  
+	 private VideoRoomDao videoRoomDao;
+	 private HttpCommonUtil httpCommonUtil;
+	 private Map<String, Object> param;
+	 public TimedRedEnvelope(CommonParameters commonParameters,Map<String, Object> param
+			 ,VideoRoomDao videoRoomdao,HttpCommonUtil httpCommonUtil) {  
+	        this.param = param;  
+	        this.commonParameters = commonParameters;
+	        this.videoRoomDao = videoRoomdao;  
+	        this.httpCommonUtil = httpCommonUtil;
+	 }
+	private boolean flag = true;
+	
+	private int time = 1;
+	@Override
+	public void run() {
+			while(flag){
+				try {
+					Thread.sleep(time*1000*60);
+					task();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+	}
+	@SuppressWarnings("unchecked")
+	public void task(){
+		    ResponseObject responseObject = new ResponseObject();
+			Map<String, Object> videoMap = new HashMap<>();
+			String id = String.valueOf(param.get("pid"));
+			videoMap = videoRoomDao.queryVideoRoomById(id);
+			//直播间金额
+			Integer balance = (Integer) videoMap.get("money");
+			//从直播间里面取状态判断是否能继续发红包
+			Integer isLive = 1;
+			if(videoMap.get("isLive")!=null){
+				isLive = (Integer) videoMap.get("isLive");
+			}
+			//type为0时表示直播关闭 为1为正在直播
+			if(isLive==0){
+				flag = false;
+			}
+			//isRedEnvelope 0为停止发红包 1为开始发红包
+			Integer isRedEnvelope = 1;
+			if(videoMap.get("isRedEnvelope")!=null){
+				isLive = (Integer) videoMap.get("isRedEnvelope");
+			}
+			if(isRedEnvelope==0){
+				flag = false;
+			}
+			//定时红包信息
+			Map<String, Object> redEnvelope = new HashMap<>();
+			if(videoMap.get("redEnvelope")!=null){
+				redEnvelope = (Map<String, Object>) videoMap.get("redEnvelope");
+			}
+			redEnvelope.get("money");
+			if(redEnvelope.isEmpty()){
+				return;
+			}
+			
+			Integer money = (Integer) redEnvelope.get("money");
+			Integer partition = (Integer) redEnvelope.get("partition");
+			//时间从直播间数据中获取（目前为假数据）;
+			time = (Integer) redEnvelope.get("time");
+			//判断余额是否满足
+			if(balance>=(money*partition)){
+				String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+			    String api = Configuration.getConfigValue("averageRedEnvelope");
+			    String token = String.valueOf(param.get("accessToken"));
+			    String url = ip+api+ ValidateCommonParam.getCommonParametersUrl2(commonParameters, token);
+			    url = url+"&pid="+id+"&partition="+partition+"&money="+money;
+			    
+			    String responseString = httpCommonUtil.doPost(url, param);
+			    if (!StringUtil.isEmpty(responseString)) {
+			        responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+			        
+			      //发包成功后修改直播间余额
+			      if(responseObject.getCode()==0&&responseObject.getData()!=null&&responseObject.getData()!=""){
+			        	videoMap = new HashMap<>();
+			            videoMap.put("id", id);
+			            balance = balance - (money*partition);
+			            videoMap.put("money", balance);
+			            videoRoomDao.updateVideoRoomById(id, videoMap);
+			      }
+			    } 	
+		} 
+	
+	}
+}

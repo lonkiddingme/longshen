@@ -1,0 +1,23 @@
+package com.cdvcloud.douting.service;
+
+import java.util.Map;
+
+import com.cdvcloud.douting.common.CommonParameters;
+
+public interface LiveAppService extends BaseService{
+
+	/**
+	 *  开启直播
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	Boolean startLive(CommonParameters commonParameters,Map<String, Object> param);
+	/**
+	 *  关闭直播
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	Boolean stopLive(CommonParameters commonParameters,Map<String, Object> param);
+}

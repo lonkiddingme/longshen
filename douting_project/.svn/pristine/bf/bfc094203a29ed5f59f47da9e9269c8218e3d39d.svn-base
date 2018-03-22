@@ -1,0 +1,428 @@
+package com.cdvcloud.douting.dao.impl;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.dao.RedisUtilDao;
+import com.cdvcloud.douting.domain.Content;
+import com.cdvcloud.rms.util.DateUtil;
+import com.cdvcloud.rms.util.JSONUtils;
+
+import redis.clients.jedis.JedisCluster;
+/**
+ * 用于redis操作
+ * RefisUtilDaoImpl
+ * @Description 
+ * @author wlf
+ * @data 2017-11-16 下午1:56:36
+ */
+@Repository
+public class RedisUtilDaoImpl implements RedisUtilDao {
+	@Autowired
+	private JedisCluster jedisCluster;
+	/**
+	 * 记录内容最新评论时间
+	 * @param docid
+	 */
+	public void NewestCommentedContent(String docid){
+		long utime_Long = System.currentTimeMillis();
+		String utime = DateUtil.getCurrentDateTime();
+		Map<String, Object> timeMap = new HashMap<String, Object>();
+		timeMap.put(Content.UTIME, utime);
+		timeMap.put(Content.UTIME_LONG, utime_Long);
+		String json = JSONUtils.toJson(timeMap);
+		jedisCluster.hset(Content.NEWESTCOMMENTTIME, docid, json);
+		String outTime = Configuration.getConfigValue(Constants.NEWCOMMENTOUTTIME);
+		Integer longTime = Integer.parseInt(outTime);
+		jedisCluster.expire(Content.NEWESTCOMMENTTIME, longTime);
+	}
+	/**
+	 * 发布公告
+	 * @param pid	
+	 * @param content
+	 */
+	@Override
+	public void publishNotice(String pid, String content) {
+		jedisCluster.set(Constants.LIVENOTICE+"_"+pid, content);
+		Integer longTime = 60*60*24;
+		jedisCluster.expire(Constants.LIVENOTICE+"_"+pid, longTime);
+	}
+	/**
+	 * 查询公告
+	 * @param pid
+	 * @return
+	 */
+	@Override
+	public String getNotice(String pid) {
+		String content = jedisCluster.get(Constants.LIVENOTICE+"_"+pid);
+		return content;
+	}
+	/**
+	 * 直播间粉丝禁言
+	 */
+	@Override
+	public void prohibitFans(String pid,String fansId,String name,String phone) {
+		List<String> result= jedisCluster.lrange(Constants.PROHIBIFANS+"_"+pid, 0, -1);
+		boolean flag = false;
+		for (String string : result) {
+			if(string.indexOf(fansId)>=0){
+				flag = true;
+				break;
+			}
+		}
+		
+		if(flag){
+			return;
+		}
+		
+		Map<String, Object> fansMap = new HashMap<String, Object>();
+		fansMap.put(Constants.NAME, name);
+		fansMap.put(Constants.PHONE, phone);
+		fansMap.put(Constants.FANSID, fansId);
+		String json = JSONUtils.toJson(fansMap);
+		jedisCluster.lpush(Constants.PROHIBIFANS+"_"+pid, json);
+		//判断是否失效
+		Boolean flag1 = jedisCluster.exists(Constants.PROHIBIFANS+"_"+pid);
+		if(!flag1){
+			Integer longTime = 60*60*24;
+			jedisCluster.expire(Constants.PROHIBIFANS+"_"+pid, longTime);
+		}
+	}
+	/**
+	 * 直播间粉丝禁言解除
+	 */
+	@Override
+	public void relieveProhibit(String pid, String fansId) {
+		List<String> result= jedisCluster.lrange(Constants.PROHIBIFANS+"_"+pid, 0, -1);
+		for (String string : result) {
+			if(string.indexOf(fansId)>=0){
+				jedisCluster.lrem(Constants.PROHIBIFANS+"_"+pid, 0, string);
+				break;
+			}
+		}
+	}
+	/**
+	 * 添加直播间商品
+	 */
+	@Override
+	public void createLiveGoods(String pid, String goodsId, Map<String, Object> map) {
+		map.put("goodsId", goodsId);
+		map.put(Constants.TIME, System.currentTimeMillis());
+		String json = JSONUtils.toJson(map);
+		jedisCluster.lpush(Constants.LIVEGOODS+"_"+pid, json);
+		
+		//判断是否失效
+		Boolean flag = jedisCluster.exists(Constants.LIVEGOODS+"_"+pid);
+		if(!flag){
+			Integer longTime = 60*60*24;
+			jedisCluster.expire(Constants.LIVEGOODS+"_"+pid, longTime);
+		}
+	}
+	/**
+	 * 删除直播间商品
+	 */
+	@Override
+	public void deleteLiveGoods(String pid, String goodsId) {
+		List<String> result= jedisCluster.lrange(Constants.LIVEGOODS+"_"+pid, 0, -1);
+		for (String string : result) {
+			if(string.indexOf(goodsId)>=0){
+				jedisCluster.lrem(Constants.LIVEGOODS+"_"+pid, 0, string);
+				break;
+			}
+		}
+	}
+	/**
+	 * 查询直播间粉丝禁言列表(后台)
+	 */
+	@Override
+	public List<Map<String, Object>> queryProhibitFansList(String pid) {
+		List<Map<String, Object>> results = new ArrayList<Map<String,Object>>();
+		try {
+			List<String> lrange = jedisCluster.lrange(Constants.PROHIBIFANS+"_"+pid, 0, -1);
+			for (String string : lrange) {
+				Map<String, Object> fans= JSONUtils.json2map(string);
+				results.add(fans);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return results;
+	}
+	
+	/**
+	 * 直播间粉丝禁言列表（APP端）
+	 */
+	@Override
+	public Map<String, Object> queryProhibitFansListForApp(String sid,Map<String, Object> jsonMap) {
+		
+		//APP端第一次的fansLastSize的初始值为-1；
+		
+		Map<String, Object> resultMap = new HashMap<String, Object>();
+		List<Map<String, Object>> results = new ArrayList<Map<String,Object>>();
+		Long lastSize = 0l;
+		if(jsonMap.get("fansLastSize")!=null){
+			lastSize = Integer.valueOf(String.valueOf(jsonMap.get("fansLastSize"))).longValue();
+		}
+		try {
+					Long llen = jedisCluster.llen(Constants.PROHIBIFANS+"_"+sid);
+					List<String> lrange = new ArrayList<String>();
+					if(llen > lastSize&&lastSize>-1){
+						lrange = jedisCluster.lrange(Constants.PROHIBIFANS+"_"+sid, 0, (llen-lastSize-1));
+					}
+					
+					for (String string : lrange) {
+						Map<String, Object> list = JSONUtils.json2map(string);
+						results.add(list);
+					}
+					resultMap.put("size", llen);
+					resultMap.put("results", results);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return resultMap;
+	}
+	
+	
+	
+	
+	/**
+	 * 查询直播间商品列表
+	 */
+	@Override
+	public List<Map<String, Object>> queryLiveGoodsList(String pid) {
+		
+		List<Map<String, Object>> results = new ArrayList<Map<String,Object>>();
+		try {
+			List<String> lrange = jedisCluster.lrange(Constants.LIVEGOODS+"_"+pid, 0, -1);
+			for (String string : lrange) {
+				Map<String, Object> goods= JSONUtils.json2map(string);
+				results.add(goods);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return results;
+	}
+	
+	/**
+	 * 根据pid获取红包列表
+	 * @param params
+	 * @return
+	 */
+	@Override
+	public List<String> getRedEnvelope(String pid) {
+		return jedisCluster.lrange(Constants.REDENVELOPEPLIST+"_"+pid,0,-1);
+	}
+	
+	/**
+	 * 根据sid查询已删除评论id(先发后删策略)
+	 * @param jsonMap
+	 * @return
+	 */
+	@Override
+	public Map<String, Object> getDeleteCommentIds(String sid,Map<String, Object> jsonMap) {
+		Map<String, Object> resultMap = new HashMap<String, Object>();
+		List<String> results = new ArrayList<String>();
+		Long lastSize = 0l;
+		if(jsonMap.get("delCommentLastSize")!=null){
+			lastSize = Integer.valueOf(String.valueOf(jsonMap.get("delCommentLastSize"))).longValue();
+		}
+		String lastPoolId = String.valueOf(jsonMap.get("delCommentLastPoolId"));
+		String poolId = jedisCluster.lindex(Constants.COMMENTDELPOOLIDS+"_"+sid, 0);
+		try {
+			if(poolId != null){
+				if(poolId.equals(lastPoolId)){
+					resultMap.put("poolId", poolId);
+					Long llen = jedisCluster.llen(Constants.COMMENT+"Del_"+sid+"_"+poolId);
+					if(llen > lastSize){
+						results = jedisCluster.lrange(Constants.COMMENT+"Del_"+sid+"_"+poolId, 0, (llen-lastSize-1));
+					}
+					resultMap.put("size", llen);
+					resultMap.put("results", results);
+				}else{
+					Long llen = jedisCluster.llen(Constants.COMMENT+"Del_"+sid+"_"+lastPoolId);
+					if(llen > lastSize){
+						resultMap.put("poolId", lastPoolId);
+						results = jedisCluster.lrange(Constants.COMMENT+"Del_"+sid+"_"+lastPoolId, 0, (llen-lastSize-1));
+						resultMap.put("size", llen);
+					}else{
+						Long llen2 = jedisCluster.llen(Constants.COMMENT+"Del_"+sid+"_"+poolId);
+						resultMap.put("poolId", poolId);
+						results = jedisCluster.lrange(Constants.COMMENT+"Del_"+sid+"_"+poolId, 0, -1);
+						resultMap.put("size", llen2);
+					}
+					resultMap.put("results", results);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return resultMap;
+	}
+	
+	/**
+	 * 通过sid查询评论支持高并发
+	 * @param jsonMap
+	 * @return
+	 */
+	@Override
+	public Map<String, Object> queryCommentEfficient(String sid,Map<String, Object> jsonMap) {
+		Map<String, Object> resultMap = new HashMap<String, Object>();
+		List<Map<String, Object>> results = new ArrayList<Map<String,Object>>();
+		Long lastSize = 0l;
+		if(jsonMap.get("lastSize")!=null){
+			lastSize = Integer.valueOf(String.valueOf(jsonMap.get("lastSize"))).longValue();
+		}
+		String lastPoolId = String.valueOf(jsonMap.get("lastPoolId"));
+		String poolId = jedisCluster.lindex(Constants.COMMENTPOOLIDS+"_"+sid, 0);
+		try {
+			if(poolId != null){
+				if(lastPoolId.equals(poolId)){
+					resultMap.put("poolId", poolId);
+					Long llen = jedisCluster.llen(Constants.COMMENT+"_"+sid+"_"+lastPoolId);
+					List<String> lrange = new ArrayList<String>();
+					if(llen > lastSize){
+						lrange = jedisCluster.lrange(Constants.COMMENT+"_"+sid+"_"+poolId, 0, (llen-lastSize-1));
+					}
+					for (String string : lrange) {
+						Map<String, Object> comment = JSONUtils.json2map(string);
+						results.add(comment);
+					}
+					resultMap.put("results", results);
+					resultMap.put("size", llen);
+				}else{
+					Long llen = jedisCluster.llen(Constants.COMMENT+"_"+sid+"_"+lastPoolId);
+					List<String> lrange = new ArrayList<String>();
+					if(llen > lastSize){
+						resultMap.put("poolId", lastPoolId);
+						lrange = jedisCluster.lrange(Constants.COMMENT+"_"+sid+"_"+poolId, 0, (llen-lastSize-1));
+						resultMap.put("size", llen);
+					}else{
+						Long llen2 = jedisCluster.llen(Constants.COMMENT+"_"+sid+"_"+poolId);
+						resultMap.put("size", llen2);
+						resultMap.put("poolId", poolId);
+						lrange = jedisCluster.lrange(Constants.COMMENT+"_"+sid+"_"+poolId, 0, -1);
+					}
+					for (String string : lrange) {
+						Map<String, Object> comment = JSONUtils.json2map(string);
+						results.add(comment);
+					}
+					resultMap.put("results", results);
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return resultMap;
+	}
+	
+	
+	/**
+	 * 直播间粉丝观看列表
+	 */
+	@Override
+	public void createLiveFansMsgList(String pid,Map<String, Object> fansMap) {
+		long len = jedisCluster.llen(Constants.FANSMSG+"_"+pid);
+		if(len==10){
+			jedisCluster.lpop(Constants.FANSMSG+"_"+pid);
+		}
+		String fansId = String.valueOf(fansMap.get("fansId"));
+		List<String> lrange = jedisCluster.lrange(Constants.FANSMSG+"_"+pid, 0, -1);
+		boolean flag = false;
+		for (String string : lrange) {
+			if(string.indexOf(fansId)>=0){
+				flag = true;
+				break;
+			}
+		}
+		if(!flag){
+			String json = JSONUtils.toJson(fansMap);
+			jedisCluster.lpush(Constants.FANSMSG+"_"+pid, json);
+			//判断是否失效
+			Boolean flag1 = jedisCluster.exists(Constants.FANSMSG+"_"+pid);
+			if(!flag1){
+				Integer longTime = 60*60*24;
+				jedisCluster.expire(Constants.FANSMSG+"_"+pid, longTime);
+			}
+		}
+	}
+	/**
+	 * 查询直播间粉丝观看列表
+	 */
+	@Override
+	public List<Map<String, Object>> queryLiveFansMsgList(String pid) {
+		List<Map<String, Object>> results = new ArrayList<Map<String,Object>>();
+		try {
+			List<String> lrange = jedisCluster.lrange(Constants.FANSMSG+"_"+pid,0,-1);
+			for (String string : lrange) {
+				Map<String, Object> fans= JSONUtils.json2map(string);
+				results.add(fans);
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return results;
+	}
+	/**
+	 * 验证禁言
+	 */
+	@Override
+	public List<String> getProhibitFansList(String pid) {
+		return jedisCluster.lrange(Constants.PROHIBIFANS+"_"+pid, 0, -1);
+	}
+	/**
+	 * APP端粉丝验证时添加粉丝信息
+	 */
+	@Override
+	public void addFansMsgList(Map<String, Object> fansMap,String id) {
+		String json = JSONUtils.toJson(fansMap);
+		jedisCluster.hset(Constants.FANSLOGINMSG, id, json);
+		//判断是否失效
+		Boolean flag = jedisCluster.exists(Constants.FANSLOGINMSG);
+		if(!flag){
+			Integer longTime = 60*60*24;
+			jedisCluster.expire(Constants.FANSLOGINMSG, longTime);
+		}		
+	}
+	/**
+	 * 验证粉丝登陆信息时候存在
+	 * @param fansMap
+	 * @param id
+	 * @return
+	 */
+	@Override
+	public Map<String, Object> queryFansMsgList(String id) {
+		Boolean falg = jedisCluster.hexists(Constants.FANSLOGINMSG, id);
+		if(falg){
+			String str = jedisCluster.hget(Constants.FANSLOGINMSG, id);
+			Map<String, Object> fans = new HashMap<>();
+			try {
+				fans = JSONUtils.json2map(str);
+			} catch (Exception e) {
+				fans = new HashMap<>();
+				e.printStackTrace();
+			}
+			return fans;
+		}else{
+			return new HashMap<>();
+		}
+	}
+	/**
+	 * 删除粉丝登陆信息
+	 * @param fansMap
+	 * @param id
+	 * @return
+	 */
+	@Override
+	public Long deleteFansMsgById(String id) {
+		return jedisCluster.hdel(Constants.FANSLOGINMSG, id);
+	}
+}

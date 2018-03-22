@@ -1,0 +1,188 @@
+package com.cdvcloud.douting.service.impl;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.domain.BasicObject;
+import com.cdvcloud.douting.domain.Global;
+import com.cdvcloud.douting.service.BaseService;
+import com.cdvcloud.rms.dao.ConfigurationDao;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.MD5Util;
+import com.cdvcloud.rms.util.ResponseObject;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * 基础service
+ *
+ * @author Administrator
+ */
+@Service
+public class BaseServiceImpl implements BaseService {
+    @Autowired
+    private ConfigurationDao configurationDao;
+    @Autowired
+    private HttpCommonUtil commonUtil;
+
+    /**
+     * 获取global表中的数据
+     *
+     * @param key 键
+     * @return 值
+     */
+    @Override
+    public String getConfigurationValue(String key) {
+        return configurationDao.getConfigValue(key, Global.GLOBAL);
+    }
+
+    /**
+     * 验证用户
+     *
+     * @param commonParameters commonParameters
+     * @return true存在、false不存在
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public boolean checkUser(CommonParameters commonParameters) {
+        String userApiUrl = configurationDao.getConfigValue(Global.USERAPI_URL, Global.GLOBAL);
+        userApiUrl  += "api/user/v1/checkUser?companyId="+commonParameters.getCompanyId()+"&appCode="+commonParameters.getAppCode()+"&userId="+
+				commonParameters.getUserId()+"&serviceCode=v1&token="+commonParameters.getUserId();
+        Map<String, Object> jsonMap = new HashMap<String, Object>();
+        String md5 = MD5Util.string2MD5("userToken");
+        jsonMap.put(CommonParameters.ACCESSTOKEN, md5);
+        jsonMap.put(CommonParameters.TIMESTAMP, System.currentTimeMillis());
+        String doPost = commonUtil.doPost(userApiUrl, jsonMap);
+        ResponseObject responseObject = JSONUtils.toObject(doPost, ResponseObject.class);
+        if (responseObject.getCode() == 0) {
+            Object data = responseObject.getData();
+            if (data instanceof Map) {
+                Map<String, Object> user = (Map<String, Object>) data;
+                String userId = String.valueOf(user.get(BasicObject.USERID));
+                String userName = String.valueOf(user.get(BasicObject.USERNAME));
+                String companyId = String.valueOf(user.get(BasicObject.COMPANYID));
+                String companyName = String.valueOf(user.get(BasicObject.COMPANYNAME));
+                String companyGroup = String.valueOf(user.get(BasicObject.COMPANYGROUP));
+                String companyTag = String.valueOf(user.get(BasicObject.COMPANYTAG));
+                String departmentId = String.valueOf(user.get(BasicObject.DEPARTMENTID));
+                String departmentName = String.valueOf(user.get(BasicObject.DEPARTMENTNAME));
+                commonParameters.setUserId(userId);
+                commonParameters.setUserName(userName);
+                commonParameters.setCompanyId(companyId);
+                commonParameters.setCompanyName(companyName);
+                commonParameters.setCompanyGroup(companyGroup);
+                commonParameters.setCompanyTag(companyTag);
+                commonParameters.setDepartmentId(departmentId);
+                commonParameters.setDepartmentName(departmentName);
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    /**
+     * 验证粉丝
+     *
+     * @param commonParameters commonParameters
+     * @return true存在、false不存在
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public boolean checkFans(CommonParameters commonParameters) {
+    	
+    	
+    	
+    	
+    	
+    	
+    	String userApiUrl = configurationDao.getConfigValue(Global.USERAPI_URL, Global.GLOBAL);
+    	StringBuffer buffer = new StringBuffer();
+    	buffer.append(commonParameters.getCompanyId() + "/");
+    	buffer.append(commonParameters.getAppCode() + "/");
+    	buffer.append(commonParameters.getUserId() + "/");
+    	buffer.append(commonParameters.getServiceCode() + "/");
+    	buffer.append("v1/api/fans/checkFans");
+    	userApiUrl += buffer.toString();
+    	Map<String, Object> jsonMap = new HashMap<String, Object>();
+    	String md5 = MD5Util.string2MD5("userToken");
+    	jsonMap.put(CommonParameters.ACCESSTOKEN, md5);
+    	jsonMap.put(CommonParameters.TIMESTAMP, System.currentTimeMillis());
+    	String doPost = commonUtil.doPost(userApiUrl, jsonMap);
+    	ResponseObject responseObject = JSONUtils.toObject(doPost, ResponseObject.class);
+    	if (responseObject.getCode() == 0) {
+    		Object data = responseObject.getData();
+    		if (data instanceof Map) {
+    			Map<String, Object> user = (Map<String, Object>) data;
+    			String userId = String.valueOf(user.get(BasicObject.ID));
+    			String userName = String.valueOf(user.get("name"));
+//    			String companyId = String.valueOf(user.get(BasicObject.COMPANYID));
+//    			String companyName = String.valueOf(user.get(BasicObject.COMPANYNAME));
+//    			String companyGroup = String.valueOf(user.get(BasicObject.COMPANYGROUP));
+//    			String companyTag = String.valueOf(user.get(BasicObject.COMPANYTAG));
+//    			String departmentId = String.valueOf(user.get(BasicObject.DEPARTMENTID));
+//    			String departmentName = String.valueOf(user.get(BasicObject.DEPARTMENTNAME));
+    			commonParameters.setUserId(userId);
+    			commonParameters.setUserName(userName);
+//    			commonParameters.setCompanyId(companyId);
+//    			commonParameters.setCompanyName(companyName);
+//    			commonParameters.setCompanyGroup(companyGroup);
+//    			commonParameters.setCompanyTag(companyTag);
+//    			commonParameters.setDepartmentId(departmentId);
+//    			commonParameters.setDepartmentName(departmentName);
+    			String isdel = String.valueOf(user.get(BasicObject.ISDEL));
+    			if(isdel.equals("1")){
+    				return false;
+    			}
+    			
+    			return true;
+    		} else {
+    			return false;
+    		}
+    	} else {
+    		return false;
+    	}
+    }
+
+    /**
+     * 验证 粉丝 是否能评论
+     */
+	@SuppressWarnings("unchecked")
+	@Override
+	public boolean checkFansStatus(CommonParameters commonParameters) {
+		String userApiUrl = configurationDao.getConfigValue(Global.USERAPI_URL, Global.GLOBAL);
+    	StringBuffer buffer = new StringBuffer();
+    	buffer.append(commonParameters.getCompanyId() + "/");
+    	buffer.append(commonParameters.getAppCode() + "/");
+    	buffer.append(commonParameters.getUserId() + "/");
+    	buffer.append(commonParameters.getServiceCode() + "/");
+    	buffer.append("v1/api/fans/checkFans");
+    	userApiUrl += buffer.toString();
+    	Map<String, Object> jsonMap = new HashMap<String, Object>();
+    	String md5 = MD5Util.string2MD5("userToken");
+    	jsonMap.put(CommonParameters.ACCESSTOKEN, md5);
+    	jsonMap.put(CommonParameters.TIMESTAMP, System.currentTimeMillis());
+    	String doPost = commonUtil.doPost(userApiUrl, jsonMap);
+    	ResponseObject responseObject = JSONUtils.toObject(doPost, ResponseObject.class);
+    	if (responseObject.getCode() == 0) {
+    		Object data = responseObject.getData();
+    		if (data instanceof Map) {
+    			Map<String, Object> user = (Map<String, Object>) data;
+    			String status = String.valueOf(user.get("status"));
+    			if(status.equals("0")){
+    				return false;
+    			}
+    			
+    			return true;
+    		} else {
+    			return false;
+    		}
+    	} else {
+    		return false;
+    	}
+	}
+
+}

@@ -1,0 +1,239 @@
+package com.cdvcloud.douting.service.impl;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.ContentDao;
+import com.cdvcloud.douting.domain.Content;
+import com.cdvcloud.douting.service.ContentService;
+import com.cdvcloud.douting.service.NumCountService;
+import com.cdvcloud.rms.util.Pages;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 内容管理
+ *
+ * @author SongYuanKun
+ */
+@Service
+public class ContentServiceImpl extends BaseServiceImpl implements ContentService {
+    @Autowired
+    private ContentDao contentDao;
+    @Autowired
+    private NumCountService numCountService;
+
+    /**
+     * 创建内容
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 内容ID
+     */
+    @Override
+    public String createContent(CommonParameters commonParameters, Map<String, Object> param) {
+         /*创建内容Map*/
+        Map<String, Object> contentMap = new HashMap<String, Object>(16);
+
+        List<String> list = Arrays.asList(Content.TITLE, Content.THUMBNAILURL, Content.STATUS, Content.LIKENUM, Content.LOOKNUM, Content.COMMENTNUM, Content.WEIGHT);
+
+        /*更新信息*/
+        contentMap.putAll(ValidateCommonParam.getFieldsMap(list, param));
+
+        /*创建信息*/
+        contentMap.putAll(ValidateCommonParam.getCreateMessage(commonParameters));
+
+        /*内容基础查询*/
+        contentMap.put(Content.LIKENUM, Constants.ZERO);
+        contentMap.put(Content.LOOKNUM, Constants.ZERO);
+        contentMap.put(Content.COMMENTNUM, Constants.ZERO);
+
+        return contentDao.createContent(contentMap);
+    }
+
+    /**
+     * 更新内容
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 更新条数
+     */
+    @Override
+    public long updateContentById(CommonParameters commonParameters, Map<String, Object> param) {
+        Map<String, Object> update = new HashMap<String, Object>(16);
+        List<String> list = Arrays.asList(Content.TITLE, Content.THUMBNAILURL, Content.STATUS, Content.LIKENUM, Content.LOOKNUM, Content.COMMENTNUM, Content.WEIGHT);
+
+        /*更新信息*/
+        update.putAll(ValidateCommonParam.getFieldsMap(list, param));
+
+        /*更新人信息*/
+        update.putAll(ValidateCommonParam.getUpdateMessage(commonParameters));
+
+        String id = String.valueOf(param.get("id"));
+        return contentDao.updateContentById(id, update);
+    }
+
+    /**
+     * 删除内容
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 删除条数
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public long deleteContent(CommonParameters commonParameters, Map<String, Object> param) {
+        List<String> ids = (List<String>) param.get("ids");
+        return contentDao.deleteContents(ids);
+    }
+
+    /**
+     * 查询内容，通过Id查询
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 内容圈帖子
+     */
+    @Override
+    public Map<String, Object> queryContentById(CommonParameters commonParameters, Map<String, Object> param) {
+        String id = String.valueOf(param.get("id"));
+        Map<String, Object> data = new HashMap<String, Object>(16);
+        long numCount = numCountService.queryNumCount("user", commonParameters, "commentNum", id);
+        data.put(Content.COMMENTNUM, numCount);
+        return data;
+    }
+
+    /**
+     * 查询内容，分页查询
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 分页对象
+     */
+    @SuppressWarnings("unchecked")
+	@Override
+    public Pages queryContent4Page(CommonParameters commonParameters, Map<String, Object> param) {
+        // 查询参数抽取
+        Map<String, Object> queryMap = new HashMap<String, Object>(16);
+
+        List<String> queryList = Arrays.asList("keyWord", "keyValue", "keyTime", "startTime", "endTime", "conditionParam");
+        /*更新信息*/
+        queryMap.putAll(ValidateCommonParam.getFieldsMap(queryList, param));
+        // 排序
+        Map<String, Object> sortMap = new HashMap<String, Object>(16);
+        sortMap.put("sort", param.get("sort"));
+        // 返回字段
+        Map<String, Object> backMap = new HashMap<String, Object>(16);
+        backMap.put("backParam", param.get("backParam"));
+        // 当前页
+        Map<String, Object> currentPageMap = new HashMap<String, Object>(16);
+        currentPageMap.put("currentPage", param.get("currentPage"));
+        // 每页条数
+        Map<String, Object> pageNumMap = new HashMap<String, Object>(16);
+        pageNumMap.put("pageNum", param.get("pageNum"));
+        Pages pages = contentDao.queryContent4Page(sortMap, queryMap, backMap, currentPageMap, pageNumMap);
+        List<Map<String, Object>> list = (List<Map<String, Object>>) pages.getResults();
+        List<Map<String, Object>> newList = new ArrayList<Map<String, Object>>();
+        if (list != null && list.size() > 0) {
+            for (int i = 0; i < list.size(); i++) {
+                Map<String, Object> data = list.get(i);
+                long numCount = numCountService.queryNumCount("user", commonParameters, "commentNum", String.valueOf(data.get(Content.DOCID)));
+                data.put(Content.COMMENTNUM, numCount);
+                newList.add(data);
+            }
+            pages.setResults(newList);
+        }
+        return pages;
+    }
+
+    /**
+     * 更新内容状态
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+	@Override
+    public long updateContentStatus(CommonParameters commonParameters, Map<String, Object> param) {
+        List<String> ids = (List<String>) param.get("ids");
+        String status = String.valueOf(param.get(Content.STATUS));
+
+        Map<String, Object> update = new HashMap<String, Object>(16);
+        update.put(Content.STATUS, status);
+
+         /*更新人信息*/
+        update.putAll(ValidateCommonParam.getUpdateMessage(commonParameters));
+
+        return contentDao.updateContents(ids, update);
+    }
+
+    /**
+     * 查询所有内容
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 分页对象
+     */
+    @Override
+    public List<Map<String, Object>> queryContentAll(CommonParameters commonParameters, Map<String, Object> param) {
+        // 查询参数抽取
+        Map<String, Object> queryMap = new HashMap<String, Object>(16);
+
+        List<String> queryList = Arrays.asList("keyWord", "keyValue", "keyTime", "startTime", "endTime", "conditionParam");
+        /*更新信息*/
+        queryMap.putAll(ValidateCommonParam.getFieldsMap(queryList, param));
+        // 排序
+        Map<String, Object> sortMap = new HashMap<String, Object>(16);
+        sortMap.put("sort", param.get("sort"));
+        // 返回字段
+        Map<String, Object> backMap = new HashMap<String, Object>(16);
+        backMap.put("backParam", param.get("backParam"));
+
+        return contentDao.queryContentAll(sortMap, queryMap, backMap);
+    }
+
+    /**
+     * 查询内容数量
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 分页对象
+     */
+    @Override
+    public long countContent(CommonParameters commonParameters, Map<String, Object> param) {
+        // 查询参数抽取
+        Map<String, Object> queryMap = new HashMap<String, Object>(16);
+
+        List<String> queryList = Arrays.asList("keyWord", "keyValue", "keyTime", "startTime", "endTime", "conditionParam");
+        /*更新信息*/
+        queryMap.putAll(ValidateCommonParam.getFieldsMap(queryList, param));
+        return contentDao.countContent(queryMap);
+    }
+
+    /**
+     * 批量更新内容
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    @SuppressWarnings("unchecked")
+	@Override
+    public long updateContents(CommonParameters commonParameters, Map<String, Object> param) {
+        List<String> ids = (List<String>) param.get("ids");
+        List<String> list = Arrays.asList(Content.TITLE, Content.THUMBNAILURL, Content.STATUS, Content.LIKENUM, Content.LOOKNUM, Content.COMMENTNUM, Content.WEIGHT, Content.STATUS_ZH, Content.STATUS, Content.ISCOMMENT);
+        /*更新信息*/
+        Map<String, Object> update = ValidateCommonParam.getFieldsMap(list, param);
+        update.putAll(ValidateCommonParam.getFieldsMap(list, param));
+
+        return contentDao.updateContents(ids, update);
+    }
+
+}

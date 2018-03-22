@@ -1,0 +1,43 @@
+
+package com.cdvcloud.douting.web.api;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+import org.bson.Document;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+import com.cdvcloud.rms.dao.BasicDao;
+
+
+/**
+ * Created by SongYuanKun on 2017/10/28.
+ */
+
+@RunWith(SpringJUnit4ClassRunner.class)  //使用junit4进行测试
+@ContextConfiguration(locations = {"classpath*:applicationContext.xml", "classpath*:springMVC.xml"}) //加载配置文件
+public class AnchorApiControllerTest {
+
+    @Autowired
+    private BasicDao basicDao;
+    @Test
+    public void sumNum(){
+    	 /* Group操作*/
+    	 Document groupFields = new Document("_id", "$proprietorId");
+    	 groupFields.put("money", new Document("$sum", "$income"));
+    	 List<Document> list = new ArrayList<>();
+    	 list.add(new Document("$match", new Document("gainerId", "5a9f425aee37872f64dbb524")));
+    	 list.add(new Document("$match", new Document("expenditureType", "reward")));
+    	 list.add(new Document("$group", groupFields));
+    	 List<Map<String, Object>> map =  basicDao.aggregate("moneyDetail", list);
+    	 for (Map<String, Object> map2 : map) {
+    		 System.out.println(map2.toString());
+		}
+    	 
+    }
+}

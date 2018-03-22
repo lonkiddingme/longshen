@@ -1,0 +1,388 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.bson.Document;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.GeneralStatus;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.FansTaskProgressAppService;
+import com.cdvcloud.douting.service.TaskProgressAppService;
+import com.cdvcloud.rms.dao.mongodb.QueryOperators;
+import com.cdvcloud.rms.util.DateUtil;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+/**
+ * 粉丝 积分任务管理
+ *
+ */
+@Service
+public class FansTaskProgressAppServiceImpl extends BaseServiceImpl implements FansTaskProgressAppService {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+	@Autowired
+    private TaskProgressAppService taskProgressAppService;
+	/**
+	 * 查询粉丝任务详情
+	 * @param commonParameters
+	 * @param jsonMap
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public Map<String,Object> queryFansTaskProgress(CommonParameters commonParameters, Map<String, Object> jsonMap) {
+		ResponseObject responseObject = new ResponseObject();
+		
+		jsonMap.put("userType", "fans");
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Map<String, Object> map = new HashMap<String, Object>();
+    	map.put(QueryBasicObject.STATUS, 1);
+    	jsonMap.put(QueryBasicObject.CONDITIONPARAM, map);
+    	
+    	List<String> types = new ArrayList<>();
+    	types.add("newbieTask");
+    	types.add("dailyTask");
+    	Map<String, Object> queryOther = new HashMap<String, Object>();
+    	queryOther.put("type", new Document(QueryOperators.IN, types));
+    	jsonMap.put("queryOther", queryOther);
+    
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("queryTaskRulesAll");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, jsonMap);
+        
+        List<Map<String,Object>> taskList = new ArrayList<Map<String,Object>>();
+        
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()!=null && responseObject.getCode()==0){
+            	taskList = (List<Map<String, Object>>) responseObject.getData();
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        api = Configuration.getConfigValue("queryTaskProgress4Page");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, jsonMap);
+        
+        List<Map<String,Object>> taskPgressList = new ArrayList<Map<String,Object>>();
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()!=null){
+            	taskPgressList = (List<Map<String, Object>>) responseObject.getData();
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        Map<String, Object> data = new HashMap<String,Object>();
+        
+        List<Map<String, Object>> newbieTaskList = new ArrayList<Map<String, Object>>();
+        List<Map<String, Object>> dailyTaskList = new ArrayList<Map<String, Object>>();
+        
+        for (Map<String, Object> mapTask : taskList) {
+        	String taskIdent = String.valueOf(mapTask.get("identification"));
+        	String type = String.valueOf(mapTask.get("type"));
+        	Integer others = null;
+        	if(mapTask.get("others")!=null){
+        		others = Integer.valueOf(String.valueOf(mapTask.get("others")));
+        	}
+        	mapTask.put("receive", "未领取");
+        	mapTask.put("status", "未完成");
+        	for (Map<String, Object> mapPgress : taskPgressList) {
+        		
+        		String pIdent = String.valueOf(mapPgress.get("identification"));
+        		String time = String.valueOf(mapPgress.get("time"));
+        		String status = String.valueOf(mapPgress.get("status"));
+        		Integer othersP = 0;
+      	        if(mapPgress.get("others")!=null){
+      	    	   othersP = Integer.valueOf(String.valueOf(mapPgress.get("others")));
+      	        }
+        		if(taskIdent.equals(pIdent)){
+        			 if(time.equals(sdf.format(new Date()))){
+	        			mapTask.put("receive", status.equals("1")?mapPgress.get("status_zh"):"未领取");
+	        			mapTask.put("status", "已完成");
+	        			
+	        			if(others!=null&&othersP<others){
+	        				mapTask.put("status", "未完成");
+	        			}
+	        			//累计收听时间（秒）
+	        			if(taskIdent.equals("listenTime")){
+	        				if(othersP/60>=others){
+	        					mapTask.put("status", "已完成");
+	        				}else{
+	        					mapTask.put("status", "未完成");
+	        				}
+	        			}
+	        			continue;
+        			 }else if(type.equals("newbieTask")){
+        				mapTask.put("receive", status.equals("1")?mapPgress.get("status_zh"):"未领取");
+ 	        			mapTask.put("status", "已完成");
+ 	        			continue;
+        			 }
+        		}
+			}
+        	if(type.equals("newbieTask")){
+        		newbieTaskList.add(mapTask);
+        	}
+        	
+        	if(type.equals("dailyTask")){
+        		dailyTaskList.add(mapTask);
+        	}
+		}
+        
+        
+        data.put("dailyTask", dailyTaskList);
+        data.put("newbieTask", newbieTaskList);
+        
+        return data;
+	}
+	/**
+	 * 修改粉丝积分
+	 * @param commonParameters
+	 * @param jsonMap
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject updateFansMoneyById(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+		param.put("userType", "fans");
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        //验证任务是否完成是否领取
+        String api = Configuration.getConfigValue("queryTaskProgressByFansId");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        Map<String, Object> taskMap = new HashMap<>();
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            taskMap = (Map<String, Object>) responseObject.getData();
+            if(taskMap!=null && !taskMap.isEmpty()){
+            	String type = String.valueOf(taskMap.get("type"));
+            	String status = String.valueOf(taskMap.get("status"));
+            	String time = String.valueOf(taskMap.get("time"));
+            	if(type.equals("newbieTask")){
+            		if(status.equals("1")){
+            			responseObject.setCode(GeneralStatus.update_fansMoney_error.status);
+                		responseObject.setMessage(GeneralStatus.update_fansMoney_error.detail);
+                		responseObject.setData(null);
+                		return responseObject;
+            		}
+            	}else if(!time.equals(sdf.format(new Date()))){
+            		responseObject.setCode(GeneralStatus.fans_task_error.status);
+            		responseObject.setMessage(GeneralStatus.fans_task_error.detail);
+            		responseObject.setData(null);
+            		return responseObject;
+            	}else if(status.equals("1")){
+        			responseObject.setCode(GeneralStatus.update_fansMoney_error.status);
+            		responseObject.setMessage(GeneralStatus.update_fansMoney_error.detail);
+            		responseObject.setData(null);
+            		return responseObject;
+        		}
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        param.put("money",0);
+        
+        //查询任务规则表
+        Map<String, Object> data = new HashMap<String,Object>();
+       	data.put("identification", param.get("identification"));
+        param.put("conditionParam", data);
+        api = Configuration.getConfigValue("queryTaskRulesAll");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, param);
+        Map<String, Object> ruleskMap = new HashMap<>();
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()!=null && responseObject.getData()!=""){
+	            	List<Map<String, Object>> rules = (List<Map<String, Object>>) responseObject.getData();
+	            	if(rules!=null && rules.size()>0){
+	            		ruleskMap = rules.get(0);
+	            		param.put("money",ruleskMap.get("integral"));
+	            	}
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        Integer others = null;
+       if(ruleskMap.get("others")!=null){
+    	   others = Integer.valueOf(String.valueOf(ruleskMap.get("others")));
+       }
+       Integer othersP = 0;
+       if(taskMap.get("others")!=null){
+    	   othersP = Integer.valueOf(String.valueOf(taskMap.get("others")));
+       }
+        if(others!=null&&othersP<others){
+        	responseObject.setCode(GeneralStatus.update_fansMoney_error.status);
+    		responseObject.setMessage(GeneralStatus.update_fansMoney_error.detail);
+    		responseObject.setData(null);
+    		return responseObject;
+		}
+		//累计收听时间（秒）
+        
+		if(ruleskMap.get("listenTime")!=null&&ruleskMap.get("listenTime").equals("listenTime")){
+			if(othersP/60<others){
+				responseObject.setCode(GeneralStatus.update_fansMoney_error.status);
+        		responseObject.setMessage(GeneralStatus.update_fansMoney_error.detail);
+        		responseObject.setData(null);
+        		return responseObject;
+			}
+		}
+        //验证通过后更新粉丝积分表
+		param.put("type", "fans");
+        api = Configuration.getConfigValue("updateFansMoneyById");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()==null){
+            	responseObject.setCode(GeneralStatus.update_fansMoney_error.status);
+        		responseObject.setMessage(GeneralStatus.update_fansMoney_error.detail);
+        		responseObject.setData(null);
+        		return responseObject;
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        //修改后修改任务表为已领取
+        api = Configuration.getConfigValue("updateTaskProgressStatus");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        //查询积分表获取余额及粉丝信息
+        api = Configuration.getConfigValue("queryFansMoneyById");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        Map<String, Object> fansMap = new HashMap<>();
+        responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()!=null && responseObject.getData()!=""){
+            	fansMap = (Map<String, Object>) responseObject.getData();
+        }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        //插入逗币明细
+        param.put("proprietorId",fansMap.get("proprietorId"));
+        param.put("income",ruleskMap.get("integral"));
+        param.put("money",fansMap.get("money"));
+        param.put("proprietorName",fansMap.get("proprietorName"));
+        param.put("phone",fansMap.get("phone"));
+        param.put("title","任务获取："+ruleskMap.get("name"));
+        api = Configuration.getConfigValue("creatMoneyDetail");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        
+		return responseObject;
+        
+	}
+	/**
+	 * 查询粉丝积分
+	 */
+	@Override
+	public ResponseObject queryFansMoneyById(CommonParameters commonParameters, Map<String, Object> param) {
+
+		ResponseObject responseObject = new ResponseObject();
+		param.put("userType", "fans");
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("queryFansMoneyById");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()==null){
+            	 Map<String, Object> data = new HashMap<String, Object>();
+            	 data.put("money", 0);
+            	 responseObject.setData(data);
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        return responseObject;
+	}
+	
+	 /**
+     * 初始化 日常任务详情
+     * @param commonParameters
+     * @param param
+     * @return
+     */
+	@Override
+	public ResponseObject updateTaskProgressByFansId(CommonParameters commonParameters, Map<String, Object> param) {
+
+		ResponseObject responseObject = new ResponseObject();
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+		Map<String, Object> conditionParam = new HashMap<String, Object>();
+		conditionParam.put("time", new Document(QueryOperators.LT, sdf.format(new Date())));
+		conditionParam.put("type", "dailyTask");
+		param.put("queryOther", conditionParam);
+		param.put("userType", "fans");
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("updateTaskProgressByFansId");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        //每日登陆
+        param = new HashMap<>();
+        param.put("identification", "dailyLogin");
+	    param.put("type", "dailyTask");
+	    param.put("others",1);
+	    taskProgressAppService.updateTaskProgress(commonParameters, param);
+	    ResponseObject resObj = new ResponseObject();
+	    resObj.setCode(GeneralStatus.success.status);
+	    resObj.setMessage(GeneralStatus.success.detail);
+	    resObj.setData(responseObject.getData());
+        
+	    //免登录是更新粉丝最新登陆时间
+	    param = new HashMap<>();
+	    param.put("userType", "fans");
+		param.put("accessToken", "accessToken");
+        param.put("timeStamp", System.currentTimeMillis());
+        param.put("id", commonParameters.getUserId());
+	    param.put("loginTime", DateUtil.getCurrentDateTime());
+	    
+	    
+	    ip = Configuration.getConfigValue("userApiUrl");
+        api = Configuration.getConfigValue("updateFansById");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, param);
+	    
+	    
+	    
+	    
+	    
+        return resObj;
+	}
+	
+}

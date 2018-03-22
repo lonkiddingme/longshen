@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
+    http://www.springframework.org/schema/context 
+    http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+    <!-- 载入数据库配置文件信息 -->
+    <bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="locations" value="classpath:mongodb.properties"/>
+    </bean>
+    <!-- 初始化数据库配置并启动 -->
+    <bean id="mongoJdbc" class="com.cdvcloud.rms.dao.mongodb.MongoJdbc" init-method="init">
+        <property name="repset" value="${mongo.repset}"/>
+        <property name="database" value="${mongo.database}"/>
+        <property name="databasePermission" value="${mongo.databasePermission}" />
+        <property name="user" value="${mongo.user}"/>
+        <property name="password" value="${mongo.password}"/>
+        <property name="connectionsPerHost" value="${mongo.connectionsPerHost}"/>
+        <property name="threadsAllowedToBlockForConnectionMultiplier" value="${mongo.threadsAllowedToBlockForConnectionMultiplier}"/>
+    </bean>
+<!-- redis集群连接 -->
+	<bean id="jedisCluster" class="redis.clients.jedis.JedisCluster">
+		<constructor-arg>
+			<set>
+				<bean class="redis.clients.jedis.HostAndPort">
+					<constructor-arg name="host" value="192.168.0.136"></constructor-arg>
+					<constructor-arg name="port" value="7000"></constructor-arg>
+				</bean>
+				<bean class="redis.clients.jedis.HostAndPort">
+					<constructor-arg name="host" value="192.168.0.136"></constructor-arg>
+					<constructor-arg name="port" value="7001"></constructor-arg>
+				</bean>
+				<bean class="redis.clients.jedis.HostAndPort">
+					<constructor-arg name="host" value="192.168.0.136"></constructor-arg>
+					<constructor-arg name="port" value="7002"></constructor-arg>
+				</bean>
+				<bean class="redis.clients.jedis.HostAndPort">
+					<constructor-arg name="host" value="192.168.0.136"></constructor-arg>
+					<constructor-arg name="port" value="7003"></constructor-arg>
+				</bean>
+				<bean class="redis.clients.jedis.HostAndPort">
+					<constructor-arg name="host" value="192.168.0.136"></constructor-arg>
+					<constructor-arg name="port" value="7004"></constructor-arg>
+				</bean>
+				<bean class="redis.clients.jedis.HostAndPort">
+					<constructor-arg name="host" value="192.168.0.136"></constructor-arg>
+					<constructor-arg name="port" value="7005"></constructor-arg>
+				</bean>
+			</set>
+		</constructor-arg>
+	</bean>
+    <!-- 配置Spring自带http请求工具类 -->
+    <bean id="requestFactory" class="org.springframework.http.client.SimpleClientHttpRequestFactory">
+        <property name="readTimeout" value="300000"/>
+        <property name="connectTimeout" value="10000"/>
+    </bean>
+    <bean id="restTemplate" class="org.springframework.web.client.RestTemplate">
+        <constructor-arg ref="requestFactory"/>
+    </bean>
+
+    <!-- 自动扫描且只扫描业务层注解配置 -->
+    <context:component-scan base-package="com.cdvcloud.douting.service">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+    </context:component-scan>
+    <context:component-scan base-package="com.cdvcloud.douting.authority">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Service"/>
+    </context:component-scan>
+    <!-- 自动扫描且只扫描数据持久层注解配置 -->
+    <context:component-scan base-package="com.cdvcloud.rms.dao">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+    </context:component-scan>
+    <context:component-scan base-package="com.cdvcloud.douting.dao">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Repository"/>
+    </context:component-scan>
+    <!-- 自动扫描且只扫描通用组件层注解配置 -->
+    <context:component-scan base-package="com.cdvcloud.douting.common">
+        <context:include-filter type="annotation" expression="org.springframework.stereotype.Component"/>
+    </context:component-scan>
+
+
+    <!-- 异步线程池 -->
+    <bean id="threadPoolTaskExecutor" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+        <!-- 核心线程数，默认为1 -->
+        <property name="corePoolSize" value="5"/>
+        <!-- 最大线程数，默认为Integer.MAX_VALUE -->
+        <property name="maxPoolSize" value="100"/>
+        <!-- 队列最大长度，一般需要设置值>=notifyScheduledMainExecutor.maxNum；默认为Integer.MAX_VALUE -->
+        <property name="queueCapacity" value="1000"/>
+        <!-- 线程池维护线程所允许的空闲时间，默认为60s -->
+        <property name="keepAliveSeconds" value="300"/>
+        <!-- 线程池对拒绝任务（无线程可用）的处理策略，目前只支持AbortPolicy、CallerRunsPolicy；默认为后者 -->
+        <property name="rejectedExecutionHandler">
+            <!-- AbortPolicy:直接抛出java.util.concurrent.RejectedExecutionException异常 -->
+            <!-- CallerRunsPolicy:主线程直接执行该任务，执行完之后尝试添加下一个任务到线程池中，可以有效降低向线程池内添加任务的速度 -->
+            <!-- DiscardOldestPolicy:抛弃旧的任务、暂不支持；会导致被丢弃的任务无法再次被执行 -->
+            <!-- DiscardPolicy:抛弃当前任务、暂不支持；会导致被丢弃的任务无法再次被执行 -->
+            <bean class="java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy"/>
+        </property>
+    </bean>
+</beans>

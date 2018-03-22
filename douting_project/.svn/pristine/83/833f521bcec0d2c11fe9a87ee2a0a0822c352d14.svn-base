@@ -1,0 +1,180 @@
+package com.cdvcloud.douting.dao.impl;
+
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.DownloadHistoryDao;
+import com.cdvcloud.douting.domain.BasicObject;
+import com.cdvcloud.douting.domain.DownloadHistory;
+import com.cdvcloud.rms.dao.BasicDao;
+import com.cdvcloud.rms.dao.mongodb.QueryOperators;
+import com.cdvcloud.rms.util.Pages;
+import org.bson.Document;
+import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 下载历史管理
+ *
+ * @author Administrator
+ */
+@Repository
+public class DownloadHistoryDaoImpl implements DownloadHistoryDao {
+    @Autowired
+    private BasicDao basicDao;
+
+    /**
+     * 创建下载历史
+     *
+     * @param downloadHistoryMap 下载历史
+     * @return 下载历史ID
+     */
+    @Override
+    public String createDownloadHistory(Map<String, Object> downloadHistoryMap) {
+        return basicDao.insert(DownloadHistory.DOWNLOADHISTORY, downloadHistoryMap);
+    }
+
+    /**
+     * 更新下载历史
+     *
+     * @param id     更新下载历史的主键
+     * @param update 更新数据
+     * @return 更新条数
+     */
+    @Override
+    public long updateDownloadHistoryById(String id, Map<String, Object> update) {
+        /*查询条件*/
+        Map<String, Object> queryFilter = new HashMap<String, Object>(16);
+        queryFilter.put(DownloadHistory.ID, new ObjectId(id));
+        return basicDao.updateOneBySet(DownloadHistory.DOWNLOADHISTORY, queryFilter, update);
+    }
+
+    /**
+     * 删除下载历史
+     *
+     * @param ids 需要删除下载历史的主键
+     * @return 删除条数
+     */
+    @Override
+    public long deleteDownloadHistorys(List<String> ids) {
+        List<ObjectId> objectIds = new ArrayList<ObjectId>();
+        for (String id : ids) {
+            objectIds.add(new ObjectId(id));
+        }
+        Map<String, Object> filter = new HashMap<String, Object>(16);
+        filter.put(DownloadHistory.ID, new Document(QueryOperators.IN, objectIds));
+        return basicDao.deleteMany(DownloadHistory.DOWNLOADHISTORY, filter);
+    }
+
+    /**
+     * 查询下载历史，通过Id查询
+     *
+     * @param id 下载历史id
+     * @return 下载历史圈帖子
+     */
+    @Override
+    public Map<String, Object> queryDownloadHistoryById(String id) {
+
+        return basicDao.findOne(DownloadHistory.DOWNLOADHISTORY, id);
+    }
+
+
+    /**
+     * 查询下载历史，分页查询
+     *
+     * @param sortMap        排序参数
+     * @param queryMap       查询参数
+     * @param backMap        返回参数
+     * @param currentPageMap 当前页
+     * @param pageNumMap     每页条数
+     * @return 分页对象
+     */
+    @Override
+    public Pages queryDownloadHistory4Page(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap, Map<String, Object> currentPageMap, Map<String, Object> pageNumMap) {
+        // 查询参数抽取
+        Map<String, Object> queryFilter = ValidateCommonParam.getWhereParam(queryMap);
+        // 排序
+        Map<String, Object> sortFilter = ValidateCommonParam.getSortMap(sortMap);
+        // 返回字段
+        Map<String, Object> backFilter = ValidateCommonParam.getBackMap(backMap);
+        // 当前页
+        Integer currentPage = ValidateCommonParam.getCurrentPage(currentPageMap);
+        // 每页条数
+        Integer pageNum = ValidateCommonParam.getPageNum(pageNumMap);
+        List<Map<String, Object>> results = basicDao.find(DownloadHistory.DOWNLOADHISTORY, sortFilter, queryFilter, backFilter, currentPage, pageNum);
+        long totalRecord = basicDao.count(DownloadHistory.DOWNLOADHISTORY, queryFilter);
+        return new Pages(pageNum, totalRecord, currentPage, results);
+    }
+
+    /**
+     * 批量更新下载历史
+     *
+     * @param ids    需要更新的主键
+     * @param update 更新字段
+     * @return
+     */
+    @Override
+    public long updateDownloadHistorys(List<String> ids, Map<String, Object> update) {
+        List<ObjectId> objectIds = new ArrayList<ObjectId>();
+        for (String id : ids) {
+            objectIds.add(new ObjectId(id));
+        }
+        Map<String, Object> filter = new HashMap<String, Object>(16);
+        filter.put(DownloadHistory.ID, new Document(QueryOperators.IN, objectIds));
+        return basicDao.updateManyBySet(DownloadHistory.DOWNLOADHISTORY, filter, update, true);
+    }
+
+    /**
+     * 查询所有下载历史
+     *
+     * @param sortMap  排序字段
+     * @param queryMap 请求字段
+     * @param backMap  返回字段
+     * @return 下载历史对象列表
+     */
+    @Override
+    public List<Map<String, Object>> queryDownloadHistoryAll(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap) {
+        // 查询参数抽取
+        Map<String, Object> queryFilter = ValidateCommonParam.getWhereParam(queryMap);
+        // 排序
+        Map<String, Object> sortFilter = ValidateCommonParam.getSortMap(sortMap);
+        // 返回字段
+        Map<String, Object> backFilter = ValidateCommonParam.getBackMap(backMap);
+        return basicDao.findAllObject(DownloadHistory.DOWNLOADHISTORY, queryFilter, backFilter, sortFilter);
+    }
+
+    /**
+     * 查询下载历史数量
+     *
+     * @param queryMap 请求字段
+     * @return 个数
+     */
+    @Override
+    public long countDownloadHistory(Map<String, Object> queryMap) {
+        // 查询参数抽取
+        Map<String, Object> queryFilter = ValidateCommonParam.getWhereParam(queryMap);
+        return basicDao.count(DownloadHistory.DOWNLOADHISTORY, queryFilter);
+    }
+
+    /**
+     * 批量查询下载历史
+     */
+    @Override
+    public List<Map<String, Object>> queryDownloadHistorys(List<String> ids, Map<String, Object> backMap, Map<String, Object> sortMap) {
+        List<ObjectId> objectIds = new ArrayList<ObjectId>();
+        for (String id : ids) {
+            objectIds.add(new ObjectId(id));
+        }
+        Map<String, Object> queryFilter = new HashMap<String, Object>();
+        queryFilter.put(DownloadHistory.ID, new Document(QueryOperators.IN, objectIds));
+        // 排序
+        Map<String, Object> sortFilter = ValidateCommonParam.getSortMap(sortMap);
+        // 返回字段
+        Map<String, Object> backFilter = ValidateCommonParam.getBackMap(backMap);
+        return basicDao.findAllObject(DownloadHistory.DOWNLOADHISTORY, queryFilter, backFilter, sortFilter);
+    }
+}

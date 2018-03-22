@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
+    http://www.springframework.org/schema/aop 
+    http://www.springframework.org/schema/aop/spring-aop-3.0.xsd 
+    http://www.springframework.org/schema/context 
+    http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+    
+	<!-- 自动扫描日志相关组件 -->
+	<context:component-scan base-package="com.cdvcloud.rms.logs"/>
+	
+	<!-- 配置日志切面 -->
+	<aop:config>
+		<aop:aspect ref="logsAspect">
+			<aop:pointcut expression="execution(* com.cdvcloud.rms.web.api.*Controller.*(..))" id="servicePoint" />
+			<aop:after-returning method="afterReturning" pointcut-ref="servicePoint" returning="result"/>
+			<aop:after-throwing method="afterThrowing" pointcut-ref="servicePoint" throwing="ex"/>
+		</aop:aspect>
+	</aop:config>
+</beans>

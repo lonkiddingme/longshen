@@ -1,0 +1,315 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.bson.Document;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.GeneralStatus;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.BasicObject;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.FansAppService;
+import com.cdvcloud.douting.service.TaskProgressAppService;
+import com.cdvcloud.rms.dao.mongodb.QueryOperators;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 粉丝任务管理
+ * @author zhangyuelong
+ *
+ */
+@Service
+public class FansAppServiceImpl extends BaseServiceImpl implements FansAppService {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+    @Autowired
+    private TaskProgressAppService taskProgressAppService;
+    /**
+     * 新增粉丝添加新手任务
+     */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject updateTaskProgressForNewFans(CommonParameters commonParameters, Map<String, Object> param) {
+        
+		ResponseObject responseObject = new ResponseObject();
+		
+		param.put("identification", "createNewFans");
+        param.put("type", "newbieTask");
+        taskProgressAppService.updateTaskProgress(commonParameters, param);
+        String phone = String.valueOf(param.get("phone"));
+        String recommendPhone = String.valueOf(param.get("recommendPhone"));
+        if(!phone.equals(recommendPhone)){
+        	//查询推荐人数据
+        	Map<String, Object> recommendfansMap = new HashMap<String, Object>();
+        	Map<String, Object> beRecommendfansMap = new HashMap<String, Object>();
+        	
+        	
+        	List<String> phones = new ArrayList<>();
+        	phones.add(phone);
+        	phones.add(recommendPhone);
+        	Map<String, Object> conditionParam = new HashMap<String, Object>();
+    		conditionParam.put("phone", new Document(QueryOperators.IN, phones));
+    		param.put("conditionParam", conditionParam);
+    		param.put("accessToken", "accessToken");
+            param.put("timeStamp", System.currentTimeMillis());
+            String ip = Configuration.getConfigValue("userApiUrl");
+            String api = Configuration.getConfigValue("queryFansAll");
+            String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+            String responseString = httpCommonUtil.doPost(url, param);
+            if (!StringUtil.isEmpty(responseString)) {
+                responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+                List<Map<String, Object>> fansMap = (List<Map<String, Object>>) responseObject.getData();
+                if(fansMap!=null&&fansMap.size()>0){
+                	
+                	for (Map<String, Object> map : fansMap) {
+						if(String.valueOf(map.get("phone")).equals(phone)){
+							beRecommendfansMap=map;
+						}
+						if(String.valueOf(map.get("phone")).equals(recommendPhone)){
+							recommendfansMap=map;
+						}
+					}
+                	
+                }else{
+                	responseObject.setCode(GeneralStatus.query_error.status);
+            		responseObject.setMessage(GeneralStatus.query_error.detail);
+            		responseObject.setData(null);
+            		return responseObject;
+                }
+            } else {
+                ValidateCommonParam.innerError(responseObject);
+            }
+        	
+            //查询任务规则表param.get("recommendedUser")
+            List<String> identification = new ArrayList<>();
+            identification.add("recommendedUser");
+            identification.add("beRecommendedUser");
+            Map<String, Object> data = new HashMap<String,Object>();
+           	data.put("identification", new Document(QueryOperators.IN, identification));
+            param.put("conditionParam", data);
+            api = Configuration.getConfigValue("queryTaskRulesAll");
+            url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+            responseString = httpCommonUtil.doPost(url, param);
+            if (!StringUtil.isEmpty(responseString)) {
+                responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+                if(responseObject.getData()!=null && responseObject.getData()!=""){
+    	            	List<Map<String, Object>> rules = (List<Map<String, Object>>) responseObject.getData();
+    	            	if(rules!=null && rules.size()>0){
+    	            		
+    	            		
+    	            		for (Map<String, Object> map : rules) {
+    							if(String.valueOf(map.get("recommendedUser")).equals("recommendedUser")){
+    								recommendfansMap.put("money",map.get("money"));
+    								
+    								recommendfansMap.put("taskName",map.get("name"));
+    							}
+    							if(String.valueOf(map.get("beRecommendedUser")).equals("beRecommendedUser")){
+
+    								beRecommendfansMap.put("money",map.get("money"));
+    								
+    								beRecommendfansMap.put("taskName",map.get("name"));
+    							}
+    						}
+    	            		
+    	            	}
+                }
+            } else {
+                ValidateCommonParam.innerError(responseObject);
+            }
+            
+            
+            //验证通过后更新推荐粉丝积分表
+            
+            if(!recommendfansMap.isEmpty()){
+            	commonParameters.setCompanyId(String.valueOf(recommendfansMap.get("companyId")));
+            	commonParameters.setAppCode(String.valueOf(recommendfansMap.get("appCode")));
+            	commonParameters.setUserId(String.valueOf(recommendfansMap.get("_id")));
+            	commonParameters.setUserName(String.valueOf(recommendfansMap.get("name")));
+            	param = new HashMap<>();
+            	param.put("userType", "fans");
+        		param.put("accessToken", "accessToken");
+                param.put("timeStamp", System.currentTimeMillis());
+                param.put("phone", recommendfansMap.get("phone"));
+                param.put("money", recommendfansMap.get("money"));
+            	api = Configuration.getConfigValue("updateFansMoneyById");
+            	url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+            	responseString = httpCommonUtil.doPost(url, param);
+            	if (!StringUtil.isEmpty(responseString)) {
+            		responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            	} else {
+            		ValidateCommonParam.innerError(responseObject);
+            	}
+            
+            	//查询积分表获取余额及粉丝信息
+                api = Configuration.getConfigValue("queryFansMoneyById");
+                url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+                Map<String, Object> fansMap = new HashMap<>();
+                responseString = httpCommonUtil.doPost(url, param);
+                if (!StringUtil.isEmpty(responseString)) {
+                    responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+                    if(responseObject.getData()!=null && responseObject.getData()!=""){
+                    	fansMap = (Map<String, Object>) responseObject.getData();
+                }
+                } else {
+                    ValidateCommonParam.innerError(responseObject);
+                }
+                //插入逗币明细
+                param.put("fansId",recommendfansMap.get(BasicObject.ID));
+                param.put("income",param.get("money"));
+                param.put("money",fansMap.get("money"));
+                param.put("title",recommendfansMap.get("taskName"));
+                api = Configuration.getConfigValue("creatMoneyDetail");
+                url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+                responseString = httpCommonUtil.doPost(url, param);
+                if (!StringUtil.isEmpty(responseString)) {
+                    responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+                } else {
+                    ValidateCommonParam.innerError(responseObject);
+                }
+            
+            }
+            
+        	
+
+            //验证通过后更新被推荐粉丝积分表
+            
+            if(!beRecommendfansMap.isEmpty()){
+            	commonParameters.setCompanyId(String.valueOf(beRecommendfansMap.get("companyId")));
+            	commonParameters.setAppCode(String.valueOf(beRecommendfansMap.get("appCode")));
+            	commonParameters.setUserId(String.valueOf(beRecommendfansMap.get("_id")));
+            	commonParameters.setUserName(String.valueOf(beRecommendfansMap.get("name")));
+            	param = new HashMap<>();
+            	param.put("userType", "fans");
+        		param.put("accessToken", "accessToken");
+                param.put("timeStamp", System.currentTimeMillis());
+                param.put("phone", beRecommendfansMap.get("phone"));
+                param.put("money", beRecommendfansMap.get("money"));
+            	api = Configuration.getConfigValue("updateFansMoneyById");
+            	url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+            	responseString = httpCommonUtil.doPost(url, param);
+            	if (!StringUtil.isEmpty(responseString)) {
+            		responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            	} else {
+            		ValidateCommonParam.innerError(responseObject);
+            	}
+            
+            	//查询积分表获取余额及粉丝信息
+                api = Configuration.getConfigValue("queryFansMoneyById");
+                url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+                Map<String, Object> fansMap = new HashMap<>();
+                responseString = httpCommonUtil.doPost(url, param);
+                if (!StringUtil.isEmpty(responseString)) {
+                    responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+                    if(responseObject.getData()!=null && responseObject.getData()!=""){
+                    	fansMap = (Map<String, Object>) responseObject.getData();
+                }
+                } else {
+                    ValidateCommonParam.innerError(responseObject);
+                }
+                //插入逗币明细
+                param.put("fansId",beRecommendfansMap.get(BasicObject.ID));
+                param.put("income",param.get("money"));
+                param.put("money",fansMap.get("money"));
+                param.put("title",beRecommendfansMap.get("taskName"));
+                api = Configuration.getConfigValue("creatMoneyDetail");
+                url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+                responseString = httpCommonUtil.doPost(url, param);
+                if (!StringUtil.isEmpty(responseString)) {
+                    responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+                } else {
+                    ValidateCommonParam.innerError(responseObject);
+                }
+            
+            }
+            
+            responseObject.setCode(GeneralStatus.success.status);
+    		responseObject.setMessage(GeneralStatus.success.detail);
+    		responseObject.setData(null);
+            
+        	
+        	
+            return responseObject;
+        }else{
+        	responseObject.setCode(GeneralStatus.success.status);
+    		responseObject.setMessage(GeneralStatus.success.detail);
+    		responseObject.setData(null);
+    		return responseObject;
+        }
+        
+	}
+	
+	/**
+	 * 完善粉丝资料任务
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@Override
+	public ResponseObject perfectInformationForNewFans(CommonParameters commonParameters, Map<String, Object> param) {
+        param.put("identification", "perfectInformation");
+        param.put("type", "newbieTask");
+        return taskProgressAppService.updateTaskProgress(commonParameters, param);
+	}
+	/**
+	 * 分享任务
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@Override
+	public ResponseObject fansShareTask(CommonParameters commonParameters, Map<String, Object> param) {
+       	Map<String, Object> data = new HashMap<String,Object>();
+       	data.put("firstShare", "newbieTask");
+       	data.put("dailyShare", "dailyTask");
+        param.put("conditionParam", data);
+        param.put("others",1);
+        return taskProgressAppService.updateTaskProgress(commonParameters, param);
+	}
+	/**
+	 * 更新粉丝收听时间
+	 */
+	@Override
+	public ResponseObject updateFansListenTime(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+		param.put("identification", "listenTime");
+        param.put("type", "dailyTask");
+        param.put("others", param.get("listenTime"));
+		param.put("userType", "fans");
+		param.put("accessToken", "accessToken");
+        param.put("timeStamp", System.currentTimeMillis());
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("updateTaskProgressListenTime");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        return responseObject;
+	}
+	/**
+	 * 粉丝每日登陆任务
+	 */
+	@Override
+	public ResponseObject fansLogin(CommonParameters commonParameters, Map<String, Object> param) {
+		param.put("identification", "dailyLogin");
+	    param.put("type", "dailyTask");
+	    param.put("others",1);
+	    return taskProgressAppService.updateTaskProgress(commonParameters, param);
+	}
+
+
+}

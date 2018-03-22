@@ -1,0 +1,70 @@
+package com.cdvcloud.douting.dao;
+
+import java.util.List;
+import java.util.Map;
+
+import com.cdvcloud.rms.util.Pages;
+
+/**
+ * 逗播管理
+ *
+ * @author Administrator
+ */
+public interface BroadcastDao {
+
+    String createBroadcast(Map<String, Object> broadcastMap);
+
+    long updateBroadcastById(String id, Map<String, Object> update);
+
+    long deleteBroadcast(String id);
+
+    /**
+     * 通过Id查询查询都播直播间
+     *
+     * @param id 直播间id
+     * @return 直播间
+     */
+    Map<String, Object> queryBroadcastById(String id);
+
+
+    List<Map<String, Object>> queryBroadcastByIds(List<String> ids, Map<String, Object> backMap, Map<String, Object> sortMap);
+
+    /**
+     * 逗播直播间分页查询
+     *
+     * @param sortMap        排序参数
+     * @param queryMap       查询参数
+     * @param backMap        返回参数
+     * @param currentPageMap 当前页
+     * @param pageNumMap     每页条数
+     * @return 分页对象
+     */
+    Pages queryBroadcast4Page(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap, Map<String, Object> currentPageMap, Map<String, Object> pageNumMap);
+
+    /**
+     * 更新逗播直播间状态
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    long updateBroadcastStatus(String id, Map<String, Object> param);
+
+    /**
+     * 查询所有直播间
+     *
+     * @param sortMap  排序字段
+     * @param queryMap 请求字段
+     * @param backMap  返回字段
+     * @return
+     */
+    List<Map<String, Object>> queryBroadcastAll(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap);
+
+    /**
+     * 统计直播间数量
+     *
+     * @param queryMap
+     * @return
+     */
+    long countBroadcast(Map<String, Object> queryMap);
+}

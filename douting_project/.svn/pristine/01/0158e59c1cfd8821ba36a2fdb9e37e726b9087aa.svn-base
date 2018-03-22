@@ -1,0 +1,88 @@
+<%--
+  Created by IntelliJ IDEA.
+  User: Administrator
+  Date: 2017/11/17
+  Time: 21:12
+  To change this template use File | Settings | File Templates.
+--%>
+<%@ page contentType="text/html;charset=UTF-8" language="java" %>
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core" %>
+<%
+    String path = request.getContextPath() + "/";
+%>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <base href="<%=path%>"></base>
+    <script src="js/shareLive/rem.js" type="text/javascript" charset="utf-8"></script>
+    <link rel="stylesheet" href="css/shareLiveCss/common.css">
+    <link rel="stylesheet" href="css/shareLiveCss/index.css">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <title></title>
+</head>
+<body>
+<div id="videobox" style="width: 100%;">
+    <video id="videoinfo" src="${url}" preload="auto" poster="" webkit-playsinline="true" playsinline="true" x5-video-player-type="h5" x5-video-player-fullscreen="true" x5-video-orientation="portraint"></video>
+</div>
+<div class="info_img" id="info_img">
+	<img src="images/bk.png" alt="" class="info_img_main">
+	<div class="play_btn" id="play_btn"><img src="images/pause.png" alt=""></div>
+</div>
+<div class="header_wrap">
+   <input type="text" hidden id="videoRoomId" value="${id}">
+    <div class="header clearfloat">
+        <div class="header_live_details">
+            <div class="header_live_details_wrap">
+                <h4>${name}</h4>
+                <p>${lookNum}人</p>
+                <img src="css/img/rw.svg" alt="" class="header_live_rw">
+            </div>
+        </div>
+        <div class="avatar-ls" onclick="buttonOnclick()">
+            <div class="header_live_tx">打开逗听&nbsp;观看直播</div>
+        </div>
+    </div>
+    <div class="on_line_wrap clearfloat">
+        <div class="on_line fr">
+            <i class="on_line_heart fl"></i>
+            <span class="fl">${likeNum}</span>
+        </div>
+    </div>
+</div>
+<div class="comment_wrap">
+    <div class="comment">
+        <div class="comment_cont_wrap">
+        <ul class="comment_cont" id="commentArea">
+           
+        </ul>
+        </div>
+        <div class="footer_main clearfloat">
+            <div class="common_package fl">
+                <div class="comment_btn fl" onclick="buttonOnclick()"><img src="images/news.svg" alt=""></div>
+                <div class="package fl" onclick="buttonOnclick()"><img src="images/red_envelope.svg" alt=""></div>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+<script src="common/plugins/hashmap/onairmap-v0.9.js"></script>
+<script src="js/getData.js"></script>
+<script src="http://libs.baidu.com/jquery/2.0.0/jquery.min.js"></script>
+<script src="js/shareLive/share.js" type="text/javascript"></script>
+<script src="js/shareLive/index.js" type="text/javascript"></script>
+<script>
+    function buttonOnclick() {
+        var u = navigator.userAgent, app = navigator.appVersion;
+        var isAndroid = u.indexOf('Android') > -1 || u.indexOf('Linux') > -1; //android终端或者uc浏览器
+        var isiOS = !!u.match(/\(i[^;]+;( U;)? CPU.+Mac OS X/); //ios终端
+        if (isAndroid){
+            location.href="${apkDownLoadUrl}";
+        }
+        if (isiOS){
+            location.href="${ipaDownLoadUrl}";
+
+        }
+    }
+</script>
+</html>

@@ -1,0 +1,175 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.RedisUtilDao;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.RewardAppService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 打赏管理
+ * @author zhangyuelong
+ *
+ */
+@Service
+public class RewardAppServiceImpl extends BaseServiceImpl implements RewardAppService {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+	@Autowired
+	private  RedisUtilDao redisUtilDao;
+	/**
+	 * 打赏
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject updateMoneyByReward(CommonParameters commonParameters, Map<String, Object> param) {
+//		param.put("doRewardType", "fans");
+//		param.put("beRewardType", "videoRoom");
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("updateFansMoneyByReward");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        param.put(QueryBasicObject.USERTYPE, QueryBasicObject.FANS);
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        //添加记录
+        if(responseObject.getCode()==0&&responseObject.getData()!=null&&responseObject.getData()!=""){
+        	Map<String, Object> result = (Map<String, Object>) responseObject.getData();
+        	Integer temp = (Integer) result.get("influenceNum");
+        	if(temp>0){
+        		
+        		Integer money = (Integer) param.get("money");
+        		String giftName = "";
+        		
+        		String msg = "";
+        		//判断是否是送礼物的打赏
+        		if(param.get("giftName")!=null){
+        			giftName = String.valueOf(param.get("giftName"));
+        			msg = param.get("doRewardName")+"送出礼物："+giftName;
+        		}else{
+        			msg = param.get("doRewardName")+"打赏："+ money+"逗币";
+        		}
+        		//此处后续要在redis中添加轮询的打赏信息APP端展示
+        		redisUtilDao.addRewardMsgByVideoRoomId(String.valueOf(param.get("beRewardId")),msg);
+        		
+        		//打赏者打赏后信息
+        		Integer beRewardMoney = (Integer) result.get("beRewardMoney");
+        		Integer doRewardMoney = (Integer) result.get("doRewardMoney");
+        		Map<String, Object> jsonMap = new HashMap<String, Object>();
+        		jsonMap.put("userType", "fans");
+        		jsonMap.put("accessToken", "accessToken");
+        		jsonMap.put("timeStamp", System.currentTimeMillis());
+        		Map<String, Object> doRewardDetail = new HashMap<String, Object>();
+        		if(giftName!=""){
+        			doRewardDetail.put("title", param.get("doRewardName")+"送给"+ param.get("beRewardName")+"礼物："+giftName);
+        		}else{
+        			doRewardDetail.put("title", param.get("doRewardName")+"打赏："+ param.get("beRewardName"));
+        		}
+        		doRewardDetail.put("income", -money);
+        		doRewardDetail.put("money", doRewardMoney);
+        		doRewardDetail.put("proprietorId", param.get("doRewardId"));
+        		doRewardDetail.put("proprietorName", param.get("doRewardName"));
+        		doRewardDetail.put("beRwardId", param.get("beRewardId"));
+        		doRewardDetail.put("beRwardName", param.get("beRewardName"));
+        		doRewardDetail.put("type", param.get("doRewardType"));
+        		//被打赏者  目前是 栏目和直播间 
+        		Map<String, Object> beRewardDetail = new HashMap<String, Object>();
+        		if(giftName!=""){
+        			doRewardDetail.put("title", param.get("doRewardName")+"送给"+ param.get("beRewardName")+"礼物："+giftName);
+        		}else{
+        			beRewardDetail.put("title", param.get("beRewardName")+"被："+ param.get("doRewardName")+"打赏");
+        		}
+        		beRewardDetail.put("income", money);
+        		beRewardDetail.put("money", beRewardMoney);
+        		beRewardDetail.put("proprietorId", param.get("beRewardId"));
+        		beRewardDetail.put("proprietorName", param.get("beRewardName"));
+        		beRewardDetail.put("type", param.get("beRewardType"));
+        		
+        		jsonMap.put("doRewardMap", doRewardDetail);
+        		jsonMap.put("beRewardMap", beRewardDetail);
+        		
+        		api = Configuration.getConfigValue("creatRwardDetail");
+                url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+                responseString = httpCommonUtil.doPost(url, jsonMap);
+        	}
+        	
+        }
+        
+        return responseObject;
+	}
+
+	/**
+	 * 充值功能
+	 */
+	@Override
+	public ResponseObject rechargeByfanId(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+	    String api = Configuration.getConfigValue("rechargeByfanId");
+	    String token = String.valueOf(param.get("accessToken"));
+	    String identification = String.valueOf(param.get("identification"));
+	    
+	    String userName = String.valueOf(commonParameters.getUserName());
+	    String payWay = String.valueOf(param.get("payWay"));
+	    String orderId = String.valueOf(param.get("orderId"));
+	    
+	    String url = ip+api+ ValidateCommonParam.getCommonParametersUrl2(commonParameters, token);
+	    url = url+"&identification="+identification+"&userName="+userName+"&payWay="+payWay+"&orderId="+orderId;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+		return responseObject;
+	}
+	/**
+     * 查询充值规则列表
+     * @param companyId
+     * @param appCode
+     * @param userId
+     * @param serviceCode
+     * @param commonParameters
+     * @param strJson
+     * @return
+     */
+	@Override
+	public ResponseObject queryRechargeRules(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+		
+		param.put("userType", "fans");
+		Map<String, Object> map = new HashMap<String, Object>();
+    	map.put(QueryBasicObject.STATUS, 1);
+    	map.put(QueryBasicObject.TYPE, "rechargeRules");
+    	param.put(QueryBasicObject.CONDITIONPARAM, map);
+    
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("queryTaskRulesAll");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+		return responseObject;
+	}
+}

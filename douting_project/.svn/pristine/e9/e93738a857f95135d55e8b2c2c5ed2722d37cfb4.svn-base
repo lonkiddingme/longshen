@@ -1,0 +1,27 @@
+package com.cdvcloud.douting.dao;
+/**
+ * 用于redis操作
+ * RedisUtilDao
+ * @Description 
+ * @author wlf
+ * @data 2017-11-16 下午1:55:41
+ */
+public interface RedisUtilDao {
+	/**
+	 * 记录内容最新评论时间
+	 * @param docid
+	 */
+	public void NewestCommentedContent(String docid);
+	/**
+	 * 添加公告
+	 * @param pid	
+	 * @param content
+	 */
+	public void publishNotice(String pid,String content);
+	/**
+	 * 查询公告
+	 * @param pid
+	 * @return
+	 */
+	public String getNotice(String pid);
+}

@@ -1,0 +1,566 @@
+package com.cdvcloud.douting.web.api;
+
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.common.GeneralStatus;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.Anchor;
+import com.cdvcloud.douting.domain.BasicObject;
+import com.cdvcloud.douting.domain.Broadcast;
+import com.cdvcloud.douting.domain.Content;
+import com.cdvcloud.douting.domain.DownloadHistory;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.domain.VideoRoom;
+import com.cdvcloud.douting.service.AnchorService;
+import com.cdvcloud.douting.service.BroadcastService;
+import com.cdvcloud.douting.service.ContentService;
+import com.cdvcloud.douting.service.DownloadHistoryService;
+import com.cdvcloud.douting.service.HomePageAppApiService;
+import com.cdvcloud.douting.service.VideoRoomService;
+import com.cdvcloud.rms.logs.LogsAnnotation;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.Pages;
+import com.cdvcloud.rms.util.ResponseObject;
+
+/**
+ * 首页相关app接口
+ *
+ * @author SongYuanKun
+ * @date 2017/11/10
+ */
+@Controller
+@RequestMapping(value = "/{companyId}/{appCode}/{userId}/{serviceCode}/")
+public class HomePageAppApiController {
+    private static final Logger logger = Logger.getLogger("ValidateCommonParam");
+
+    @Autowired
+    private HomePageAppApiService homePageAppApiService;
+
+    @Autowired
+    private AnchorService anchorService;
+    @Autowired
+    private ContentService contentService;
+    @Autowired
+    private VideoRoomService videoRoomService;
+    @Autowired
+    private BroadcastService broadcastService;
+    @Autowired
+    private DownloadHistoryService downloadHistoryService;
+
+    /**
+     * 查询条件查询轮播图
+     * @param companyId
+     * @param appCode
+     * @param userId
+     * @param serviceCode
+     * @param commonParameters
+     * @param strJson
+     * @return
+     */
+    @ResponseBody
+    @RequestMapping("v1/appApi/queryCarousels")
+    @LogsAnnotation(MethodAction = "查询", MethodAscription = "首页轮播图")
+    public ResponseObject queryCarousels(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>(16);
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : queryCarousels " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户验证
+            boolean checkFans = homePageAppApiService.checkFans(commonParameters);
+            if (!checkFans) {
+                logger.error("class : HomePageAppApiController --> method : queryCarousels " + GeneralStatus.user_error.enDetail);
+                ValidateCommonParam.userError(resObj);
+                return resObj;
+            }
+            
+            
+            //参数非空校验
+            List<String> names = new ArrayList<String>();
+            names.add("carouselNum");
+            names.add("type");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : queryCarousels " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            Map<String, Object> sortParam = new HashMap<String, Object>(16);
+            sortParam.put(QueryBasicObject.WEIGTH, 1);
+            jsonMap.put("sort", sortParam);
+            List<Map<String, Object>> data = homePageAppApiService.queryCarousels(commonParameters, jsonMap);
+            resObj.setCode(GeneralStatus.query_success.status);
+            resObj.setMessage(GeneralStatus.query_success.detail);
+            resObj.setData(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : HomePageAppApiController --> method : queryCarousels处理异常！");
+        }
+        return resObj;
+    }
+
+    /**
+     * 查询推荐内容接口
+     * @param companyId
+     * @param appCode
+     * @param userId
+     * @param serviceCode
+     * @param commonParameters
+     * @param strJson
+     * @return
+     */
+    @ResponseBody
+    @RequestMapping("v1/appApi/queryRecommendContents")
+    @LogsAnnotation(MethodAction = "查询", MethodAscription = "推荐内容")
+    public ResponseObject queryRecommendContents(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>(16);
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : queryRecommendContents " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户验证
+            boolean checkFans = homePageAppApiService.checkFans(commonParameters);
+            if (!checkFans) {
+                logger.error("class : HomePageAppApiController --> method : queryRecommendContents " + GeneralStatus.user_error.enDetail);
+                ValidateCommonParam.userError(resObj);
+                return resObj;
+            }
+            
+            
+            //参数非空校验
+            List<String> names = new ArrayList<String>();
+            names.add("pageNum");
+            names.add("currentPage");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : queryRecommendContents " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            Map<String, Object> sortParam = new HashMap<String, Object>(16);
+            sortParam.put(QueryBasicObject.WEIGTH, 1);
+            sortParam.put(QueryBasicObject.CTIMELONG, -1);
+            jsonMap.put("sort", sortParam);
+            Pages pages = homePageAppApiService.queryRecommendContents(commonParameters, jsonMap);
+            Map<String, Object> data = new HashMap<String, Object>(16);
+            data.put("currentPage", pages.getCurrentPage());
+            data.put("totalPage", pages.getTotalPage());
+            data.put("contents", pages.getResults());
+            resObj.setCode(GeneralStatus.query_success.status);
+            resObj.setMessage(GeneralStatus.query_success.detail);
+            resObj.setData(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : HomePageAppApiController --> method : queryRecommendContents处理异常！");
+        }
+        return resObj;
+    }
+    
+	/**
+	 *  查询推荐直播接口
+	 * @param companyId
+	 * @param appCode
+	 * @param userId
+	 * @param serviceCode
+	 * @param commonParameters
+	 * @param strJson
+	 * @return
+	 */
+    @ResponseBody
+    @RequestMapping("v1/appApi/queryRecommendBroadcasts")
+    @LogsAnnotation(MethodAction = "查询", MethodAscription = "推荐内容")
+    public ResponseObject queryRecommendBroadcasts(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>(16);
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : queryRecommendBroadcasts " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户验证
+            boolean checkFans = homePageAppApiService.checkFans(commonParameters);
+            if (!checkFans) {
+                logger.error("class : HomePageAppApiController --> method : queryRecommendBroadcasts " + GeneralStatus.user_error.enDetail);
+                ValidateCommonParam.userError(resObj);
+                return resObj;
+            }
+            
+            
+            //参数非空校验
+            List<String> names = new ArrayList<String>();
+            names.add("videoRoomNum");
+            names.add("broadcastNum");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : queryRecommendBroadcasts " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            Map<String, Object> sortParam = new HashMap<String, Object>(16);
+            sortParam.put(QueryBasicObject.WEIGTH, 1);
+            sortParam.put(QueryBasicObject.CTIMELONG, -1);
+            jsonMap.put("sort", sortParam);
+            Map<String, Object> data = new HashMap<String, Object>(16);
+            List<Map<String, Object>> broadcasts = homePageAppApiService.queryRecommendBroadcasts(commonParameters, jsonMap);
+            List<String> broadcastIds = new ArrayList<String>();
+
+            for (Map<String, Object> broadcast : broadcasts) {
+                broadcastIds.add(String.valueOf(broadcast.get(BasicObject.ID)));
+            }
+            jsonMap.put("broadcastIds", broadcastIds);
+            List<Map<String, Object>> videoRooms = homePageAppApiService.queryRecommendVideoRooms(commonParameters, jsonMap);
+            List<Map<String, Object>> broadcastColumns = homePageAppApiService.queryRecommendBroadcastColumnsByBroadCastIds(commonParameters, jsonMap);
+            data.put("broadcasts", broadcasts);
+            data.put("videoRooms", videoRooms);
+            data.put("broadcastColumns", broadcastColumns);
+
+            resObj.setCode(GeneralStatus.query_success.status);
+            resObj.setMessage(GeneralStatus.query_success.detail);
+            resObj.setData(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : HomePageAppApiController --> method : queryRecommendBroadcasts处理异常！");
+        }
+        return resObj;
+    }
+
+    /**
+     * 搜所功能
+     * @param companyId
+     * @param appCode
+     * @param userId
+     * @param serviceCode
+     * @param commonParameters
+     * @param strJson
+     * @return
+     */
+    @ResponseBody
+    @RequestMapping("v1/appApi/searchByJson")
+    @LogsAnnotation(MethodAction = "查询", MethodAscription = "推荐内容")
+    public ResponseObject searchByJson(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>(16);
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : searchByJson " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户验证
+            boolean checkFans = homePageAppApiService.checkFans(commonParameters);
+            if (!checkFans) {
+                logger.error("class : HomePageAppApiController --> method : searchByJson " + GeneralStatus.user_error.enDetail);
+                ValidateCommonParam.userError(resObj);
+                return resObj;
+            }
+            
+            
+            //参数非空校验
+            List<String> names = new ArrayList<String>();
+            names.add("searchType");
+            names.add("keyWord");
+            names.add("pageNum");
+            names.add("currentPage");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : searchByJson " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+
+
+            List<Map<String, Object>> data = new ArrayList<Map<String, Object>>(16);
+
+            if (Content.CONTENT.equals(jsonMap.get("searchType"))) {
+                Map<String, Object> conditionParam = new HashMap<String, Object>(16);
+                conditionParam.put(Content.STATUS, 1);
+                conditionParam.put(BasicObject.COMPANYID, companyId);
+                jsonMap.put("conditionParam", conditionParam);
+                Map<String, Object> sortParam = new HashMap<String, Object>(16);
+                sortParam.put(QueryBasicObject.WEIGTH, 1);
+                sortParam.put(Content.PUSHTIME_LONG, 1);
+                jsonMap.put("sort", sortParam);
+
+                Map<String, Object> backParam = new HashMap<String, Object>(16);
+                backParam.put(Content.DOCID, 1);
+                backParam.put(Content.TITLE, 1);
+                backParam.put(Content.CIBIAO, 1);
+                backParam.put(Content.CLASSIFY, 1);
+                backParam.put(Content.PUSHTIME, 1);
+                backParam.put(Content.THUMBNAILURL, 1);
+
+                jsonMap.put("backParam", backParam);
+                Pages pages = contentService.queryContent4Page(commonParameters, jsonMap);
+                List<Map<String, Object>> contentList = (List<Map<String, Object>>) pages.getResults();
+                for (Map<String, Object> map : contentList) {
+                	List<Map<String, Object>> cibiao = (List<Map<String, Object>>) map.get(Content.CIBIAO);
+                	if(cibiao!=null&&cibiao.size()>0){
+                		
+                		Map<String, Object> cibiaoMap = cibiao.get(0);
+                		map.put("cbId", String.valueOf(cibiaoMap.get("cbid")));
+                		map.remove(Content.CIBIAO);
+                		data.add(map);
+                	}
+				}
+
+            }
+            if (VideoRoom.VIDEOROOM.equals(jsonMap.get("searchType"))) {
+                Map<String, Object> sortParam = new HashMap<String, Object>(16);
+                sortParam.put(QueryBasicObject.WEIGTH, 1);
+                sortParam.put(BasicObject.CTIMELONG, -1);
+                jsonMap.put("sort", sortParam);
+                
+                
+                Map<String, Object> conditionParam = new HashMap<String, Object>(16);
+                conditionParam.put(BasicObject.COMPANYID, companyId);
+                jsonMap.put("conditionParam", conditionParam);
+                
+                Map<String, Object> backParam = new HashMap<String, Object>(16);
+                backParam.put(VideoRoom.NAME, 1);
+                backParam.put(VideoRoom.ID, 1);
+                backParam.put(VideoRoom.REMARK, 1);
+                backParam.put(VideoRoom.CTIME, 1);
+                backParam.put(VideoRoom.THUMBNAILURL, 1);
+                backParam.put(VideoRoom.H5URL, 1);
+                jsonMap.put("backParam", backParam);
+                Pages pages = videoRoomService.queryVideoRoom4Page(commonParameters, jsonMap);
+                List<Map<String, Object>> videoList = (List<Map<String, Object>>) pages.getResults();
+                if(videoList!=null && videoList.size()>0){
+                	
+                	for (Map<String, Object> map : videoList) {
+                		String url = String.valueOf(map.get(VideoRoom.H5URL));
+                		map.put("url", url);
+                		map.remove(VideoRoom.H5URL);
+                		data.add(map);
+                	}
+                }
+            }
+            if (Broadcast.BROADCAST.equals(jsonMap.get("searchType"))) {
+                Map<String, Object> sortParam = new HashMap<String, Object>(16);
+                sortParam.put(QueryBasicObject.WEIGTH, 1);
+                sortParam.put(BasicObject.CTIMELONG, -1);
+                jsonMap.put("sort", sortParam);
+                
+                Map<String, Object> conditionParam = new HashMap<String, Object>(16);
+                conditionParam.put(BasicObject.COMPANYID, companyId);
+                jsonMap.put("conditionParam", conditionParam);
+                
+                Map<String, Object> backParam = new HashMap<String, Object>(16);
+                backParam.put(Broadcast.ID, 1);
+                backParam.put(Broadcast.NAME, 1);
+                backParam.put(Broadcast.CTIME, 1);
+                backParam.put(Broadcast.THUMBNAILURL, 1);
+                backParam.put(Broadcast.URL, 1);
+                backParam.put(Broadcast.REMARK, 1);
+                jsonMap.put("backParam", backParam);
+                Pages pages = broadcastService.queryBroadcast4Page(commonParameters, jsonMap);
+                data = (List<Map<String, Object>>) pages.getResults();
+            }
+            if (Anchor.ANCHOR.equals(jsonMap.get("searchType"))) {
+                Map<String, Object> sortParam = new HashMap<String, Object>(16);
+                sortParam.put(QueryBasicObject.WEIGTH, 1);
+                sortParam.put(BasicObject.CTIMELONG, -1);
+                jsonMap.put("sort", sortParam);
+                
+                Map<String, Object> conditionParam = new HashMap<String, Object>(16);
+                conditionParam.put(BasicObject.COMPANYID, companyId);
+                jsonMap.put("conditionParam", conditionParam);
+                
+                Map<String, Object> backParam = new HashMap<String, Object>(16);
+                backParam.put(Anchor.ID, 1);
+                backParam.put(Anchor.CTIME, 1);
+                backParam.put(Anchor.THUMBNAILURL, 1);
+                backParam.put(Anchor.NAME, 1);
+                backParam.put(Anchor.REMARK, 1);
+                jsonMap.put("backParam", backParam);
+                Pages pages = anchorService.queryAnchor4Page(commonParameters, jsonMap);
+                data = (List<Map<String, Object>>) pages.getResults();
+            }
+
+
+            resObj.setCode(GeneralStatus.query_success.status);
+            resObj.setMessage(GeneralStatus.query_success.detail);
+            resObj.setData(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : HomePageAppApiController --> method : searchByJson处理异常！");
+        }
+        return resObj;
+    }
+    
+
+    /**
+     *  
+     *  创建下载历史
+     * @param companyId
+     * @param appCode
+     * @param userId
+     * @param serviceCode
+     * @param commonParameters
+     * @param strJson
+     * @return
+     */
+    @ResponseBody
+    @RequestMapping(value = "v1/appApi/createDownloadHistory")
+    public ResponseObject download(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>(16);
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : createDownloadHistory " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //参数非空校验
+            List<String> names = Arrays.asList(DownloadHistory.TITLE, DownloadHistory.FANSID, DownloadHistory.DOCID, DownloadHistory.FANSNAME);
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : createDownloadHistory " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户验证
+            boolean checkFans = homePageAppApiService.checkFans(commonParameters);
+            if (!checkFans) {
+                logger.error("class : HomePageAppApiController --> method : createDownloadHistory " + GeneralStatus.user_error.enDetail);
+                ValidateCommonParam.userError(resObj);
+                return resObj;
+            }
+            
+            
+            //用户状态验证
+            boolean checkFansStatus = homePageAppApiService.checkFansStatus(commonParameters);
+            if (!checkFansStatus) {
+                logger.error("class : HomePageAppApiController --> method : createDownloadHistory " + GeneralStatus.user_status_error.enDetail);
+                ValidateCommonParam.userStatusError(resObj);
+                return resObj;
+            }
+
+            String id = downloadHistoryService.createDownloadHistory(commonParameters, jsonMap);
+            Map<String, Object> data = new HashMap<String, Object>(16);
+            data.put("id", id);
+            resObj.setCode(GeneralStatus.insert_success.status);
+            resObj.setMessage(GeneralStatus.insert_success.detail);
+            resObj.setData(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : HomePageAppApiController --> method : createDownloadHistory处理异常！");
+        }
+        return resObj;
+    }
+
+
+    /**
+     * 提供APP启动时需要的信息，包括启动页已经系统配置。
+     * 
+     * @param companyId
+     * @param appCode
+     * @param userId
+     * @param serviceCode
+     * @param commonParameters
+     * @param strJson
+     * @return
+     */
+    @ResponseBody
+    @RequestMapping("v1/appApi/getSystem")
+    @LogsAnnotation(MethodAction = "查询", MethodAscription = "系统信息")
+    public ResponseObject getSystem(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>(16);
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : HomePageAppApiController --> method : getSystem " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+
+            Map<String, Object> data = homePageAppApiService.getSystem(commonParameters, jsonMap);
+            String companyId1 = Configuration.getConfigValue("companyId");
+            String appCode1 = Configuration.getConfigValue("appCode");
+            String serviceCode1 = Configuration.getConfigValue("serviceCode");
+            String userId1 = Configuration.getConfigValue("userId");
+            String bigPictureSize = Configuration.getConfigValue("bigPictureSize");
+            String pictureSize = Configuration.getConfigValue("pictureSize");
+
+            Map<String, Object> map = new HashMap<String, Object>(16);
+            map.put("companyId", companyId1);
+            map.put("appCode", appCode1);
+            map.put("serviceCode", serviceCode1);
+            map.put("userId", userId1);
+            map.put("bigPictureSize", bigPictureSize);
+            map.put("pictureSize", pictureSize);
+            if(data == null){
+            	data = new HashMap<String, Object>();
+            }
+            data.putAll(map);
+
+            resObj.setCode(GeneralStatus.query_success.status);
+            resObj.setMessage(GeneralStatus.query_success.detail);
+            resObj.setData(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : HomePageAppApiController --> method : getSystem处理异常！");
+        }
+        return resObj;
+    }
+}

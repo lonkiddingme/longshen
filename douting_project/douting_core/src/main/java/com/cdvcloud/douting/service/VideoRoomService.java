@@ -1,0 +1,113 @@
+package com.cdvcloud.douting.service;
+
+import java.util.List;
+import java.util.Map;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.rms.util.Pages;
+
+/**
+ * 逗看视频直播管理
+ *
+ * @author zhangyuelong
+ * @date 2017/10/31
+ */
+public interface VideoRoomService extends BaseService {
+
+
+    /**
+     * 创建逗看视频直播間
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 直播间ID
+     */
+    String createVideoRoom(CommonParameters commonParameters, Map<String, Object> param);
+
+    /**
+     * 删除 逗看视频直播
+     *
+     * @param commonParameters
+     * @param param
+     * @return
+     */
+    long deleteVideoRoom(CommonParameters commonParameters, Map<String, Object> param);
+
+
+    /**
+     * 更新逗看视频直播
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 更新条数
+     */
+    long updateVideoRoomById(CommonParameters commonParameters, Map<String, Object> param);
+
+
+    /**
+     * 查询逗看视频直播间，通过Id查询
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 逗播直播间
+     */
+    Map<String, Object> queryVideoRoomById(CommonParameters commonParameters, Map<String, Object> param);
+
+
+    /**
+     * 逗看视频直播间，分页查询
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 分页对象
+     */
+    Pages queryVideoRoom4Page(CommonParameters commonParameters, Map<String, Object> param);
+
+    /**
+     * 更新逗看视频直播间状态
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    long updateVideoRoomStatus(CommonParameters commonParameters, Map<String, Object> param);
+
+    /**
+     * 查询所有直播间
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    public List<Map<String, Object>> queryVideoRoomAll(CommonParameters commonParameters, Map<String, Object> param);
+
+
+    long countVideoRoom(CommonParameters commonParameters, Map<String, Object> param);
+    
+    /**
+     * 按条件查询
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    Map<String, Object> queryVideoRoom( Map<String, Object> param);
+	/**
+	 * 直播通道回调绑定
+     * isLive为直播间状态  1为正在直播 0为结束直播
+     * @param map
+     */
+    public long bind(Map<String,Object> map);
+    /**
+	 * 直播通道回调解绑
+     * isLive为直播间状态  1为正在直播 0为结束直播
+     * @param map
+     */
+    public long unbind(Map<String,Object> map);
+    
+       /**
+   	   * 收录回调
+   	   */
+       public long reviewBack(Map<String,Object> map);
+    
+}

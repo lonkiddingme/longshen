@@ -1,0 +1,162 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.GeneralStatus;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.FansAppService;
+import com.cdvcloud.douting.service.TaskProgressAppService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 粉丝任务管理
+ * @author zhangyuelong
+ *
+ */
+@Service
+public class FansAppServiceImpl extends BaseServiceImpl implements FansAppService {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+    @Autowired
+    private TaskProgressAppService taskProgressAppService;
+    /**
+     * 新增粉丝添加新手任务
+     */
+	@Override
+	public ResponseObject updateTaskProgressForNewFans(CommonParameters commonParameters, Map<String, Object> param) {
+        param.put("identification", "createNewFans");
+        param.put("type", "newbieTask");
+        return taskProgressAppService.updateTaskProgress(commonParameters, param);
+	}
+	
+	/**
+	 * 完善粉丝资料任务
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@Override
+	public ResponseObject perfectInformationForNewFans(CommonParameters commonParameters, Map<String, Object> param) {
+        param.put("identification", "perfectInformation");
+        param.put("type", "newbieTask");
+        return taskProgressAppService.updateTaskProgress(commonParameters, param);
+	}
+	/**
+	 * 分享任务
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@Override
+	public ResponseObject fansShareTask(CommonParameters commonParameters, Map<String, Object> param) {
+       	Map<String, Object> data = new HashMap<String,Object>();
+       	data.put("firstShare", "newbieTask");
+       	data.put("dailyShare", "dailyTask");
+        param.put("conditionParam", data);
+        param.put("others",1);
+        return taskProgressAppService.updateTaskProgress(commonParameters, param);
+	}
+	/**
+	 * 更新粉丝收听时间
+	 */
+	@Override
+	public ResponseObject updateFansListenTime(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+		param.put("identification", "listenTime");
+        param.put("type", "dailyTask");
+        param.put("others", param.get("listenTime"));
+		param.put("userType", "fans");
+		param.put("accessToken", "accessToken");
+        param.put("timeStamp", System.currentTimeMillis());
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("updateTaskProgressListenTime");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        return responseObject;
+	}
+	/**
+	 * 粉丝每日登陆任务
+	 */
+	@Override
+	public ResponseObject fansLogin(CommonParameters commonParameters, Map<String, Object> param) {
+		param.put("identification", "dailyLogin");
+	    param.put("type", "dailyTask");
+	    param.put("others",1);
+	    return taskProgressAppService.updateTaskProgress(commonParameters, param);
+	}
+	/**
+	 * 粉丝推荐用户任务
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject updateRecommendationTask(CommonParameters commonParameters, Map<String, Object> param) {
+		//通过手机号查询粉丝
+		ResponseObject responseObject = new ResponseObject();
+		String phone = String.valueOf(param.get("phone"));
+		Map<String, Object> conditionParam = new HashMap<String, Object>();
+		conditionParam.put("phone", phone);
+		param.put("conditionParam", conditionParam);
+		param.put("accessToken", "accessToken");
+        param.put("timeStamp", System.currentTimeMillis());
+        String ip = Configuration.getConfigValue("userApiUrl");
+        String api = Configuration.getConfigValue("queryFansAll");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            List<Map<String, Object>> fansMap = (List<Map<String, Object>>) responseObject.getData();
+            if(fansMap!=null&&fansMap.size()>0){
+            	commonParameters.setAppCode(String.valueOf(fansMap.get(0).get("appCode")));
+            	commonParameters.setCompanyId(String.valueOf(fansMap.get(0).get("companyId")));
+            	commonParameters.setUserId(String.valueOf(fansMap.get(0).get("_id")));
+            }else{
+            	responseObject.setCode(GeneralStatus.query_error.status);
+        		responseObject.setMessage(GeneralStatus.query_error.detail);
+        		responseObject.setData(null);
+        		return responseObject;
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        param = new HashMap<String, Object>();
+        param.put("accessToken", "accessToken");
+        param.put("timeStamp", System.currentTimeMillis());
+        param.put("userType", "fans");
+        param.put("identification", "recommendedUser");
+        param.put("others", 1);
+        ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        api = Configuration.getConfigValue("updateRecommendationTask");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+		return responseObject;
+	}
+
+
+}

@@ -1,0 +1,98 @@
+package com.cdvcloud.douting.domain;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 定时红包
+ * Activity
+ * @Description 
+ * @author wlf
+ * @data 2017-11-15 下午3:32:06
+ */
+public class TimedRedEnvelope implements Runnable {
+
+	  
+	 private ExecutorService threadPool = Executors.newFixedThreadPool(5);
+	 Integer balance = 1000;
+	 private CommonParameters commonParameters;  
+	 private VideoRoomDao videoRoomDao;
+	 private HttpCommonUtil httpCommonUtil;
+	 private Map<String, Object> param;
+	 public TimedRedEnvelope(CommonParameters commonParameters,Map<String, Object> param
+			 ,VideoRoomDao videoRoomdao,HttpCommonUtil httpCommonUtil) {  
+	        this.param = param;  
+	        this.commonParameters = commonParameters;
+	        this.videoRoomDao = videoRoomdao;  
+	        this.httpCommonUtil = httpCommonUtil;
+	 }
+	private boolean flag = true;
+	ResponseObject responseObject = new ResponseObject();
+	private int time = 0;
+	@Override
+	public void run() {
+			while(flag){
+				try {
+					Thread.sleep(time*100*60);
+					task();
+				} catch (InterruptedException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+	}
+	public void task(){
+
+			Map<String, Object> videoMap = new HashMap<>();
+			String id = String.valueOf(param.get("pid"));
+			videoMap = videoRoomDao.queryVideoRoomById(id);
+			
+			Integer money = 10;
+			Integer partition = 10;
+			//时间从直播间数据中获取（目前为假数据）;
+			time = 1;
+			//判断余额是否满足
+			if(balance>=(money*partition)){
+				System.out.println("余额："+balance);
+				
+				
+				String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+			    String api = Configuration.getConfigValue("averageRedEnvelope");
+			    String token = String.valueOf(param.get("accessToken"));
+			    String url = ip+api+ ValidateCommonParam.getCommonParametersUrl2(commonParameters, token);
+			    url = url+"&pid="+id+"&partition="+partition+"&money="+money;
+			    
+			    String responseString = httpCommonUtil.doPost(url, param);
+			    if (!StringUtil.isEmpty(responseString)) {
+			        responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+			        
+			      //发包成功后修改直播间余额
+			      if(responseObject.getCode()==0&&responseObject.getData()!=null&&responseObject.getData()!=""){
+			        	videoMap = new HashMap<>();
+			            videoMap.put("id", id);
+			            balance = balance - (money*partition);
+//			            videoMap.put("", balance);
+//			            videoRoomDao.updateVideoRoomById(id, videoMap);
+			      }
+			    } 
+			    
+			    if(balance-(money*partition)<0){
+			    	flag = false;
+			    	System.out.println("最终余额："+balance);
+			    	threadPool.shutdown();
+			    }
+		} 
+	
+	}
+}

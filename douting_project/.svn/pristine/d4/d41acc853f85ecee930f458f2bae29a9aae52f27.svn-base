@@ -1,0 +1,124 @@
+/*
+package com.cdvcloud.douting.web.api;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.domain.Anchor;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+*/
+/**
+ * Created by SongYuanKun on 2017/10/28.
+ *//*
+
+@RunWith(SpringJUnit4ClassRunner.class)  //使用junit4进行测试
+@ContextConfiguration({"classpath:applicationContext.xml", "classpath:springMVC.xml"}) //加载配置文件
+public class AnchorApiControllerTest {
+    @Autowired
+    private AnchorApiController anchorApiController;
+
+    private CommonParameters commonParameters = new CommonParameters();
+
+    private String id;
+
+    @Before
+    public void before() {
+        this.commonParameters.setCompanyId("companyId");
+        this.commonParameters.setAppCode("appcode");
+        this.commonParameters.setUserId("userid");
+        this.commonParameters.setServiceCode("servicecode");
+        this.commonParameters.setCompanyGroup("companyGroup");
+        this.commonParameters.setCompanyName("companyName");
+        this.commonParameters.setCompanyTag("companyTag");
+    }
+
+    @Test
+    public void createAnchor() throws Exception {
+        String json = "";
+        List<String> userList = new ArrayList<String>();
+        userList.add("qweojofiwejq");
+        userList.add("tio3ujo34jmkl");
+        Map<String, Object> anchorMap = new HashMap<String, Object>(16);
+
+        anchorMap.put(CommonParameters.ACCESSTOKEN, "TOKEN");
+        anchorMap.put(CommonParameters.TIMESTAMP, "TIMESTAMP");
+        anchorMap.put(Anchor.NAME, "NAME");
+        anchorMap.put(Anchor.THUMBNAILURL, "url");
+        anchorMap.put(Anchor.STATUS, Constants.ZERO);
+        anchorMap.put(Anchor.USERLIST, userList);
+
+        json = JSONUtils.toJson(anchorMap);
+        ResponseObject responseObject = anchorApiController.createAnchor("", "", "", "", commonParameters, json);
+        Map<String, Object> data = (Map<String, Object>) responseObject.getData();
+        id = String.valueOf(data.get("id"));
+
+    }
+
+    @Test
+    public void updateAnchor() throws Exception {
+        String json = "";
+        List<String> userList = new ArrayList<String>();
+        userList.add("qweojofiwejq");
+        userList.add("222222");
+        Map<String, Object> anchorMap = new HashMap<String, Object>(16);
+
+        anchorMap.put(CommonParameters.ACCESSTOKEN, "TOKEN");
+        anchorMap.put(CommonParameters.TIMESTAMP, "TIMESTAMP");
+        anchorMap.put("id", id);
+        anchorMap.put(Anchor.NAME, "NAME");
+        anchorMap.put(Anchor.THUMBNAILURL, "url");
+        anchorMap.put(Anchor.STATUS, Constants.ZERO);
+        anchorMap.put(Anchor.USERLIST, userList);
+
+        json = JSONUtils.toJson(anchorMap);
+
+        System.out.println(anchorApiController.updateAnchorById("", "", "", "", commonParameters, json));
+    }
+
+
+    @Test
+    public void queryAnchorById() throws Exception {
+        String json = "";
+        Map<String, Object> anchorMap = new HashMap<String, Object>(16);
+        anchorMap.put(CommonParameters.ACCESSTOKEN, "TOKEN");
+        anchorMap.put(CommonParameters.TIMESTAMP, "TIMESTAMP");
+        anchorMap.put("id", id);
+        json = JSONUtils.toJson(anchorMap);
+        System.out.println(anchorApiController.queryAnchorById("", "", "", "", commonParameters, json));
+    }
+
+    @Test
+    public void deleteAnchor() throws Exception {
+        String json = "";
+        List<String> userList = new ArrayList<String>();
+        userList.add(id);
+        Map<String, Object> anchorMap = new HashMap<String, Object>(16);
+        anchorMap.put("ids", userList);
+        anchorMap.put(CommonParameters.ACCESSTOKEN, "TOKEN");
+        anchorMap.put(CommonParameters.TIMESTAMP, "TIMESTAMP");
+        json = JSONUtils.toJson(anchorMap);
+        System.out.println(anchorApiController.deleteAnchor("", "", "", "", commonParameters, json));
+    }
+
+    @Test
+    public void queryAnchor4Page() throws Exception {
+        String json = "";
+        Map<String, Object> anchorMap = new HashMap<String, Object>(16);
+        anchorMap.put(CommonParameters.ACCESSTOKEN, "TOKEN");
+        anchorMap.put(CommonParameters.TIMESTAMP, "TIMESTAMP");
+        json = JSONUtils.toJson(anchorMap);
+        System.out.println(anchorApiController.queryAnchor4Page("", "", "", "", commonParameters, json));
+    }
+}*/

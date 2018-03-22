@@ -1,0 +1,65 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.FansAppService;
+import com.cdvcloud.douting.service.TaskProgressAppService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 点赞
+ * @author Administrator
+ */
+@Service
+public class FansAppServiceImpl extends BaseServiceImpl implements FansAppService {
+
+    @Autowired
+    private HttpCommonUtil httpCommonUtil;
+    
+    @Autowired
+    private TaskProgressAppService taskProgressAppService;
+    /**
+     * 新增粉丝
+     */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject updateTaskProgressByFansId(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+		param.put("userType", "fans");
+        String ip = Configuration.getConfigValue("userManage");
+        String api = Configuration.getConfigValue("createFans");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()!=null && responseObject.getData()!=""){
+            	Map<String, Object> data = (Map<String, Object>) responseObject.getData();
+            	commonParameters.setCompanyId(String.valueOf(data.get(QueryBasicObject.ID)));
+            	commonParameters.setAppCode(String.valueOf(data.get("appCode")));
+            }else{
+            	return responseObject;
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        param = new HashMap<String, Object>();
+        param.put("identification", "createNewFans");
+        param.put("type", "newbieTask");
+        taskProgressAppService.updateTaskProgress(commonParameters, param);
+        return responseObject;
+	}
+
+
+}

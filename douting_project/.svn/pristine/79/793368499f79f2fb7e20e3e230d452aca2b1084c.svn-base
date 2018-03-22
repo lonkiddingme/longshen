@@ -1,0 +1,71 @@
+package com.cdvcloud.douting.dao;
+
+import java.util.List;
+import java.util.Map;
+
+import com.cdvcloud.rms.util.Pages;
+
+/**
+ * 逗看视频直播间管理
+ *
+ * @author Administrator
+ */
+public interface VideoRoomDao {
+
+    String createVideoRoom(Map<String, Object> videoRoomMap);
+
+    long updateVideoRoomById(String id, Map<String, Object> update);
+
+    long deleteVideoRoom(String id);
+
+    /**
+     * 通过Id查询查询逗看视频直播间
+     *
+     * @param id 直播间id
+     * @return 直播间
+     */
+    Map<String, Object> queryVideoRoomById(String id);
+
+    /**
+     * 批量查询都看直播间
+     *
+     * @param ids     id数组
+     * @param backMap 返回字段
+     * @param sortMap 排序字段
+     * @return 删除条数
+     */
+    List<Map<String, Object>> queryVideoRoomByIds(List<String> ids, Map<String, Object> backMap, Map<String, Object> sortMap);
+
+    /**
+     * 逗看视频直播间分页查询
+     *
+     * @param sortMap        排序参数
+     * @param queryMap       查询参数
+     * @param backMap        返回参数
+     * @param currentPageMap 当前页
+     * @param pageNumMap     每页条数
+     * @return 分页对象
+     */
+    Pages queryVideoRoom4Page(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap, Map<String, Object> currentPageMap, Map<String, Object> pageNumMap);
+
+    /**
+     * 更新逗看视频直播间状态
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    long updateVideoRoomStatus(String id, Map<String, Object> param);
+
+    /**
+     * 查询所有直播间
+     *
+     * @param commonParameters commonParameters
+     * @param param            参数
+     * @return
+     */
+    List<Map<String, Object>> queryVideoRoomAll(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap);
+
+    long countVideoRoom(Map<String, Object> queryMap);
+
+}

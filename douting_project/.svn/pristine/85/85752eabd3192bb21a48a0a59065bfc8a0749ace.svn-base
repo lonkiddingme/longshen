@@ -1,0 +1,165 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.douting.service.LiveAppService;
+import com.cdvcloud.douting.service.LiveChannelService;
+import com.cdvcloud.rms.util.ResponseObject;
+/**
+ * APP直播管理
+ *
+ */
+@Service
+public class LiveAppServiceImpl extends BaseServiceImpl implements LiveAppService {
+	
+	@Autowired
+	private LiveChannelService liveChannelService;
+
+	@Autowired
+	private VideoRoomDao videoRoomDao;
+	/**
+	 * 开启直播
+	 * @type 为直播状态 0 为未直播 1为正在直播
+	 */
+	@SuppressWarnings({ "unchecked", "unused" })
+	@Override
+	public Boolean startLive(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("videRoomId"));
+		Map<String,	Object> videoRoomMap = videoRoomDao.queryVideoRoomById(id);
+		//判断直播间状态是否有人在直播
+		String type = String.valueOf(videoRoomMap.get("type"));
+		String fansId = String.valueOf(videoRoomMap.get("anchorId"));
+		if(type.equals("1")||fansId!=null||fansId!=""){
+			return false;
+		}
+		
+		//收录地址
+		String srcStreamUrl = null;
+		if(videoRoomMap.get("vPlayHlsAddress")!=null){
+			srcStreamUrl = String.valueOf(videoRoomMap.get("vPlayHlsAddress"));
+		}
+		//开始收录
+		ResponseObject responseObject = null;
+		if(srcStreamUrl!=null){
+			param.put("srcStreamUrl", srcStreamUrl);
+			responseObject = liveChannelService.startInclude(commonParameters, param);
+		}
+		Map<String,	Object> data = null;
+		if(responseObject!=null){
+			data = (Map<String, Object>) responseObject.getData();
+		}
+		//更新直播间信息 修改为以有人直播
+
+		String taskId = String.valueOf(data.get("taskId"));
+		
+		fansId = commonParameters.getUserId();
+		Map<String, Object> update = new HashMap<>();
+		update.put("type", 1);
+		update.put("anchorId", fansId);
+		update.put("includeId", taskId);
+		Map<String, Object> others = new HashMap<>();
+		others.put("others", update);
+		long temp = videoRoomDao.updateVideoRoomById(id, others);
+		if(temp<=0){
+			return false;
+		}
+		
+		
+		return true;
+	}
+	/**
+	 * 关闭直播
+	 */
+	@Override
+	public Boolean stopLive(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("videRoomId"));
+		Map<String,	Object> videoRoomMap = videoRoomDao.queryVideoRoomById(id);
+		//停止拉流
+		String virtualId = null;
+		if(videoRoomMap.get("virtualId")!=null){
+			virtualId = String.valueOf(videoRoomMap.get("virtualId"));
+		}
+		if(virtualId!=null){
+				param.put("virtualId", virtualId);
+				liveChannelService.stop4Json(commonParameters, param);
+		}
+		
+		//停止收录
+		String includeId = null;
+		if(videoRoomMap.get("includeId")!=null){
+				includeId = String.valueOf(videoRoomMap.get("includeId"));
+		}
+		if(includeId!=null){
+				param.put("taskId", includeId);
+				liveChannelService.stopInclude(commonParameters, param);
+		}		
+		//更新直播间信息 修改为以有人直播
+		Map<String, Object> update = new HashMap<>();
+		update.put("type", 0);
+		update.put("anchorId", "");
+		update.put("includeId", "");
+		Map<String, Object> others = new HashMap<>();
+		others.put("others", update);
+		long temp = videoRoomDao.updateVideoRoomById(id, update);
+		if(temp<=0){
+			return false;
+		}
+		return true;
+	}
+	/**
+	 * 查询直播间直播地址（结束直播是查询回看地址）
+	 * vPlayHlsAddress APP端直播地址
+	 * apiurl 回看地址
+	 */
+	@Override
+	public Map<String, Object> queryLiveAddress(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("videRoomId"));
+		Map<String,	Object> data = new HashMap<String,	Object>();
+		
+		
+		Map<String,	Object> videoRoomMap = videoRoomDao.queryVideoRoomById(id);
+		//停止拉流
+		Integer type = null;
+		if(videoRoomMap.get("type")!=null){
+			type = (Integer) videoRoomMap.get("type");
+		}
+		//type = 1时为正在直播。0时为结束直播
+		if(type==1){
+			data.put("url", videoRoomMap.get("vPlayHlsAddress"));
+		}
+		if(type==0){
+			data.put("url", videoRoomMap.get("apiUrl"));
+		}
+		return data;
+	}
+
+	/**
+	 * 查询直播间推流地址
+	 * vPlayHlsAddress APP端直播地址
+	 * apiurl 回看地址
+	 */
+	@Override
+	public Map<String, Object> queryLivePushAddress(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("videRoomId"));
+		Map<String,	Object> data = new HashMap<String,	Object>();
+		
+		Map<String,	Object> videoRoomMap = videoRoomDao.queryVideoRoomById(id);
+		
+		Integer type = null;
+		if(videoRoomMap.get("type")!=null){
+			type = (Integer) videoRoomMap.get("type");
+		}
+		//type = 1时为正在直播。0时为结束直播
+		if(type==1){
+			data.put("pushUrl", videoRoomMap.get("vPushAddress"));
+		}
+		return data;
+	}
+
+}

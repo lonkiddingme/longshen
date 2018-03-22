@@ -1,0 +1,65 @@
+@charset "utf-8";
+/* CSS Document */
+
+/*公共样式*/
+
+* {
+	margin:0; 
+	padding:0;
+	font-family: Arial,"Microsoft YaHei";
+}
+h1,h2,h3,h4,h5,h6,ul,li,ol,dt,dd,p,a,span,div,i,b,strong,img {
+	margin:0;
+	padding:0;
+	font-weight: normal;
+}
+a {
+	text-decoration: none;
+	outline: none;
+}
+img {
+	display: block;
+}
+i { 
+	display: inline-block;
+}
+ul,li {
+	list-style: none;
+}
+input,a {
+	outline:none;
+}
+
+.fl {
+	float: left;
+}
+.fr {
+	float: right;
+}
+.clear {
+	clear: both;
+	font-size: 0;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+}
+.hide {
+	display: none;
+}
+.clearfloat:after { 
+    content:"\200B"; 
+    display:block; 
+    height:0; 
+    clear:both; 
+} 
+.clearfloat {*zoom:1;}/*IE/7/6*/
+
+
+.verticalcenter{
+    position: relative;
+    top: 50%;
+    -webkit-transform: translateY(-50%);
+    -o-transform: translateY(-50%);
+    transform: translateY(-50%);
+}
+

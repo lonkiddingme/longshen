@@ -1,0 +1,22 @@
+package com.cdvcloud.douting.service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.rms.util.Pages;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * @author SongYuanKun
+ * @date 2017/11/12
+ */
+public interface AnchorAppService extends BaseService{
+
+    /**
+     * 分页查询主播
+     * @param commonParameters
+     * @param jsonMap
+     * @return
+     */
+	Pages queryAnchorByApp(CommonParameters commonParameters, Map<String, Object> jsonMap);
+}

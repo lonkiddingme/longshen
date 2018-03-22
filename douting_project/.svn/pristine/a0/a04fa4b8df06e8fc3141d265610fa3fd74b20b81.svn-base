@@ -1,0 +1,68 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.FansTaskProgressAppService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.Pages;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+/**
+ * 粉丝 积分任务管理
+ *
+ */
+@Service
+public class FansTaskProgressAppServiceImpl extends BaseServiceImpl implements FansTaskProgressAppService {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+
+	/**
+	 * 查询粉丝任务详情
+	 * @param commonParameters
+	 * @param jsonMap
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public Map<String, Object> queryFansTaskProgress(CommonParameters commonParameters, Map<String, Object> jsonMap) {
+		ResponseObject responseObject = new ResponseObject();
+		Map<String, Object> data = new HashMap<String, Object>();
+		
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("queryTaskRules4Page");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, jsonMap);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()!=null){
+            	Map<String, Object> taskData = (Map<String, Object>) responseObject.getData();
+            	data.put("tasks", taskData.get("results"));
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        api = Configuration.getConfigValue("queryTaskProgress4Page");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, jsonMap);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            data.put("taskPgress", responseObject.getData());
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        return data;
+	}
+	
+	
+}

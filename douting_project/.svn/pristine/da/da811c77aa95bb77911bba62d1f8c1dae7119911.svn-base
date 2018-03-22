@@ -1,0 +1,124 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.BroadcastColumnDao;
+import com.cdvcloud.douting.domain.BasicObject;
+import com.cdvcloud.douting.domain.BroadcastColumn;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.BroadcastAppService;
+import com.cdvcloud.douting.service.NumCountService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * @author SongYuanKun
+ * @date 2017/11/12
+ */
+@Service
+public class BroadcastAppServiceImpl extends BaseServiceImpl implements BroadcastAppService {
+    @Autowired
+    private BroadcastColumnDao broadcastColumnDao;
+    @Autowired
+    private HttpCommonUtil httpCommonUtil;
+    @Autowired
+	private NumCountService numCountService;
+
+    /**
+     * 通过逗播直播间id查询逗播直播间帖子栏目列表
+     * @param commonParameters commonParameters
+     * @param jsonMap
+     * @return
+     */
+    @Override
+    public Map<String, Object> queryBroadcastPost(CommonParameters commonParameters, Map<String, Object> jsonMap) {
+        String broadcastId = String.valueOf(jsonMap.get("broadcastId"));
+        Map<String, Object> commentParam = new HashMap<String, Object>(16);
+        Map<String, Object> conditionParam = new HashMap<String, Object>(16);
+        conditionParam.put(QueryBasicObject.ISCACHE, "yes");
+        conditionParam.put("parents", broadcastId);
+        conditionParam.put(BasicObject.COMPANYID, commonParameters.getCompanyId());
+        
+        commentParam.putAll(jsonMap);
+        commentParam.put("userType", "fans");
+        commentParam.put("conditionParam", conditionParam);
+        commentParam.remove("broadcastId");
+
+        Map<String, Object> sort = new HashMap<String, Object>(16);
+        sort.put(QueryBasicObject.STATUS, 1);
+        sort.put("utime_Long", -1);
+        commentParam.put(QueryBasicObject.SORT, sort);
+        String ip = Configuration.getConfigValue("interactiveUrl");
+        String api = Configuration.getConfigValue("queryPostsByApp");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, commentParam);
+        ResponseObject rs = new ResponseObject();
+        if (!StringUtil.isEmpty(responseString)) {
+            rs = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(rs);
+        }
+        List<String> collomList = new ArrayList<String>();
+        List<Map<String, Object>> postList = (List<Map<String, Object>>) rs.getData();
+        List<Map<String, Object>> newPostList = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> map : postList) {
+            List<String> ls = (List<String>) map.get("parents");
+            map.put("pid", ls.get(1));
+            collomList.add(ls.get(1));
+            //查看帖子的查看数
+            String postId = String.valueOf(map.get("postId"));
+            long queryNumCount = numCountService.queryNumCount("fans", commonParameters, "lookNum", postId);
+            map.put("lookNum",queryNumCount);
+            newPostList.add(map);
+        }
+        Map<String, Object> sortMap1 = new HashMap<String, Object>(16);
+        Map<String, Object> backMap1 = new HashMap<String, Object>(16);
+        backMap1.put(BroadcastColumn.NAME, 1);
+        backMap1.put(BroadcastColumn.BROADCASTID, 1);
+        backMap1.put(BroadcastColumn.STARTTIME, 1);
+        backMap1.put(BroadcastColumn.ENDTIME, 1);
+        backMap1.put(BroadcastColumn.CTIME, 1);
+        backMap1.put(BroadcastColumn.THUMBNAILURL, 1);
+        Map<String, Object> backParam = new HashMap<String, Object>(16);
+        Map<String, Object> sortParam = new HashMap<String, Object>(16);
+        backParam.put("backParam", backMap1);
+        sortParam.put("sortParam", sortMap1);
+
+        List<Map<String, Object>> broadcastColumns = broadcastColumnDao.queryRecommendBroadcastColumnsByIds(collomList, backParam, sortParam);
+        
+        
+        
+        //判断节目栏是否存在 去除已删除的节目栏下的帖子
+        List<Map<String, Object>> newPost = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> map : broadcastColumns) {
+        	
+        	String columnID = String.valueOf(map.get(BroadcastColumn.ID));
+        	
+			for (Map<String, Object> mappost : newPostList) {
+				 List<String> ls = (List<String>) mappost.get("parents");
+				 if(ls!=null&&ls.size()>0){
+					String postColumnId = String.valueOf(ls.get(1));
+					if(postColumnId.equals(columnID)){
+						newPost.add(mappost);
+					}
+				 }
+			}
+			
+		}
+        Map<String, Object> data = new HashMap<String, Object>(16);
+        data.put("broadcastColumns",broadcastColumns);
+        data.put("posts",newPost);
+        return data;
+    }
+}

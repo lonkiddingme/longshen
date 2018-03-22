@@ -1,0 +1,94 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.RewardAppService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 打赏管理
+ * @author zhangyuelong
+ *
+ */
+@Service
+public class RewardAppServiceImpl extends BaseServiceImpl implements RewardAppService {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+
+	/**
+	 * 打赏
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject updateMonetByReward(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("updateFansMoneyByReward");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        param.put(QueryBasicObject.USERTYPE, QueryBasicObject.FANS);
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        //添加记录
+        if(responseObject.getCode()==0&&responseObject.getData()!=null&&responseObject.getData()!=""){
+        	Map<String, Object> result = (Map<String, Object>) responseObject.getData();
+        	Integer temp = (Integer) result.get("influenceNum");
+        	if(temp>0){
+        		
+        		//打赏者打赏后信息
+        		
+        		Map<String, Object> doRewardMap = (Map<String, Object>) result.get("doRewardMap");
+        		
+        		Map<String, Object> beRewardMap = (Map<String, Object>) result.get("beRewardMap");
+        		
+        		
+        		Map<String, Object> jsonMap = new HashMap<String, Object>();
+        		jsonMap.put("userType", "fans");
+        		jsonMap.put("accessToken", "accessToken");
+        		jsonMap.put("timeStamp", System.currentTimeMillis());
+        		Integer money = (Integer) param.get("money");
+        		Map<String, Object> doRewardDetail = new HashMap<String, Object>();
+        		doRewardDetail.put("title", param.get("doRewardName")+"打赏："+ param.get("beRewardName"));
+        		doRewardDetail.put("income", -money);
+        		doRewardDetail.put("money", doRewardMap.get("money"));
+        		doRewardDetail.put("proprietorId", doRewardMap.get("proprietorId"));
+        		doRewardDetail.put("proprietorName", doRewardMap.get("proprietorName"));
+        		doRewardDetail.put("type", doRewardMap.get("type"));
+        		//被打赏者
+        		Map<String, Object> beRewardDetail = new HashMap<String, Object>();
+        		beRewardDetail.put("title", param.get("beRewardName")+"被："+ param.get("doRewardName")+"打赏");
+        		beRewardDetail.put("income", money);
+        		beRewardDetail.put("money", beRewardMap.get("money"));
+        		beRewardDetail.put("proprietorId", beRewardMap.get("proprietorId"));
+        		beRewardDetail.put("proprietorName", beRewardMap.get("proprietorName"));
+        		beRewardDetail.put("type", beRewardMap.get("type"));
+        		
+        		jsonMap.put("doRewardMap", doRewardDetail);
+        		jsonMap.put("beRewardMap", beRewardDetail);
+        		
+        		api = Configuration.getConfigValue("creatRwardDetail");
+                url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+                responseString = httpCommonUtil.doPost(url, param);
+        	}
+        	
+        }
+        
+        return responseObject;
+	}
+}

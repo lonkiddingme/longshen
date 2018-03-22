@@ -1,0 +1,194 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.AnchorDao;
+import com.cdvcloud.douting.domain.Activity;
+import com.cdvcloud.douting.domain.BasicObject;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.NumCountService;
+import com.cdvcloud.douting.service.PostAppServic;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+/**
+ * APP评论管理
+ *
+ */
+@Service
+public class PostAppServiceImpl extends BaseServiceImpl implements PostAppServic {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+
+	@Autowired
+	private NumCountService numCountService;
+	
+	@Autowired
+	private AnchorDao achorDao;
+	/**
+	 * 创建帖子
+	 */
+	@Override
+	public ResponseObject createPostByApp(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("createPostByApp");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        
+        //补全 状态信息
+        param.put(QueryBasicObject.STATUS, 0);
+        param.put(QueryBasicObject.STATUS_ZH, "未审核");
+        param.put(QueryBasicObject.ISCACHE, "no");
+        param.put(QueryBasicObject.ISCONCURRENT, true);
+        
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            String[] parents = {String.valueOf(param.get("parents"))};
+            if(parents.length==1){
+            	numCountService.doNumCount("fans", commonParameters, "postNum", parents[0], 1, "anchor");
+            }
+            
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        return responseObject;
+	}
+
+	/**
+	 * 分页查询帖子
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject queryPostsByApp(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("queryPostsByApp");
+        
+        if(param.get(QueryBasicObject.CONDITIONPARAM)!=null){
+        	Map<String, Object> map = (Map<String, Object>) param.get("conditionParam");
+        	map.put(QueryBasicObject.ISCACHE, "yes");
+        	map.put(BasicObject.COMPANYID, commonParameters.getCompanyId());
+        	param.put(QueryBasicObject.CONDITIONPARAM, map);
+        }else{
+        	Map<String, Object> map =new HashMap<String, Object>();
+        	map.put(QueryBasicObject.ISCACHE, "yes");
+        	map.put(QueryBasicObject.TYPE, "anchorPost");
+        	map.put(BasicObject.COMPANYID, commonParameters.getCompanyId());
+        	param.put(QueryBasicObject.CONDITIONPARAM, map);
+        }
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            
+            //查询 父类名字
+            List<Map<String, Object>> postList =  (List<Map<String, Object>>) responseObject.getData();
+            List<Map<String, Object>>  anchorList = new ArrayList<Map<String, Object>>();
+            Map<String, Object> data = new HashMap<String, Object>();
+            List<String> anchorIdList = new ArrayList<String>();
+            if(postList.size()>0){
+            	for (Map<String, Object> map : postList) {
+            		List<String> ls = (List<String>) map.get("parents");
+            		if(ls.size()==1){
+            			anchorIdList.add( ls.get(0));
+            		}
+            	}
+            	Map<String, Object> sortMap = new HashMap<String, Object>();
+            	Map<String, Object> backMap = new HashMap<String, Object>();
+            	anchorList = achorDao.queryAnchors(anchorIdList, backMap, sortMap);
+            }
+            data.put("postList", postList);
+            data.put("anchorList", anchorList);
+            responseObject.setData(data);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        
+        
+        return responseObject;
+	}
+
+	/**
+	 * 删除帖子
+	 */
+	@Override
+	public ResponseObject deletePost(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("deletePost");
+        param.put(QueryBasicObject.ISCACHE, "yes");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        return responseObject;
+	}
+	/**
+	 * APP当前用户活动贴 投票支持
+	 */
+	@Override
+	public ResponseObject createActivity(CommonParameters commonParameters,
+			Map<String, Object> jsonMap) {
+		ResponseObject responseObject = new ResponseObject();
+		 String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+		 String api = Configuration.getConfigValue("createActivity");
+		 String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+		 jsonMap.put("userType","fans");
+		 Map<String, Object> conditionParam = new HashMap<String, Object>(16);
+		 conditionParam.put("userType", "fans");
+		 conditionParam.put(BasicObject.COMPANYID, commonParameters.getCompanyId());
+		 jsonMap.put("conditionParam", conditionParam);
+		 String responseString = httpCommonUtil.doPost(url, jsonMap);
+		 
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            //参与成功后统计结果  
+            long doNumCount = numCountService.doNumCount("fans", commonParameters, String.valueOf(jsonMap.get(Activity.TYPE)), String.valueOf(jsonMap.get(Activity.PID)), 1, String.valueOf(jsonMap.get(Activity.PTYPE)));
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+		return responseObject;
+	}
+    /**
+     * 验证当前用户是否参与该活动贴
+     */
+	@Override
+	public ResponseObject queryActivity(CommonParameters commonParameters,
+			Map<String, Object> jsonMap) {
+		ResponseObject responseObject = new ResponseObject();
+		 String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+		 String api = Configuration.getConfigValue("checkActivity");
+		 String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+		 jsonMap.put("userType","fans");
+		 Map<String, Object> conditionParam = new HashMap<String, Object>(16);
+		 conditionParam.put("userType", "fans");
+		 conditionParam.put(BasicObject.COMPANYID, commonParameters.getCompanyId());
+		 jsonMap.put("conditionParam", conditionParam);
+		 String responseString = httpCommonUtil.doPost(url, jsonMap);
+       if (!StringUtil.isEmpty(responseString)) {
+           responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+       } else {
+           ValidateCommonParam.innerError(responseObject);
+       }
+		return responseObject;
+	}
+	
+	
+	
+}

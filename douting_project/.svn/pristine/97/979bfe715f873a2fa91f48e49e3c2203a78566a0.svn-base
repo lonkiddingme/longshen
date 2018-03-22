@@ -1,0 +1,105 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.CheckLikeAppService;
+import com.cdvcloud.douting.service.NumCountService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 点赞
+ * @author Administrator
+ */
+@Service
+public class CheckLikeAppServiceImpl extends BaseServiceImpl implements CheckLikeAppService {
+
+    @Autowired
+    private HttpCommonUtil httpCommonUtil;
+
+    @Autowired
+    private NumCountService numCountService;
+    
+    /**
+     * 点赞验证
+     */
+    @Override
+    public ResponseObject checkLike(CommonParameters commonParameters, Map<String, Object> param) {
+        ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue(QueryBasicObject.CHECKLIKE);
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        param.put(QueryBasicObject.USERTYPE,QueryBasicObject.FANS);
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        return responseObject;
+    }
+    /**
+     * 添加点赞
+     */
+    @Override
+    public ResponseObject createLikeByApp(CommonParameters commonParameters, Map<String, Object> param) {
+        ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("createLikeByApp");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        
+        param.put(QueryBasicObject.USERTYPE,QueryBasicObject.FANS);
+        
+        String responseString = httpCommonUtil.doPost(url, param);
+        
+        
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            //统计计数
+            Map<String,Object> data = (Map<String, Object>) responseObject.getData();
+            String influenceNum = String.valueOf(data.get("influenceNum"));
+            if(influenceNum.equals("1")){
+            	long doNumCount = numCountService.doNumCount("fans", commonParameters, "likeNum", String.valueOf(param.get("beLikeId")), 1, String.valueOf(param.get("beLikeType")));
+            }
+            
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        return responseObject;
+    }
+    /**
+     * 取消点赞
+     */
+    @Override
+    public ResponseObject cancelLikeByApp(CommonParameters commonParameters, Map<String, Object> param) {
+        ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("cancelLikeByApp");
+        String url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        param.put(QueryBasicObject.USERTYPE,QueryBasicObject.FANS);
+        
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            //统计计数
+            Map<String,Object> data = (Map<String, Object>) responseObject.getData();
+            String influenceNum = String.valueOf(data.get("influenceNum"));
+            if(influenceNum.equals("1")){
+            	numCountService.doNumCount("fans", commonParameters, "likeNum", String.valueOf(param.get("beLikeId")), -1, String.valueOf(param.get("beLikeType")));
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        return responseObject;
+    }
+
+}

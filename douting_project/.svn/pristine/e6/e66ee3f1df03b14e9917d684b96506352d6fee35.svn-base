@@ -1,0 +1,242 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.GeneralStatus;
+import com.cdvcloud.douting.common.HttpCommonUtil;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.douting.domain.QueryBasicObject;
+import com.cdvcloud.douting.service.RedEnvelopeAppService;
+import com.cdvcloud.douting.service.VideoRoomService;
+import com.cdvcloud.douting.service.task.TimedRedEnvelope;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 打赏管理
+ * @author zhangyuelong
+ *
+ */
+@Service
+public class RedEnvelopeAppServiceImpl extends BaseServiceImpl implements RedEnvelopeAppService {
+
+	@Autowired
+    private HttpCommonUtil httpCommonUtil;
+
+	@Autowired
+    private VideoRoomService videoRoomService;
+	@Autowired
+    private VideoRoomDao videoRoomdao;
+    @Autowired
+    private ThreadPoolTaskExecutor threadPoolTaskExecutor;
+    
+	/**
+	 * 定时红包
+	 */
+	@Override
+	public ResponseObject timedRedEnvelope(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+		TimedRedEnvelope timedRedEnvelope = new TimedRedEnvelope(commonParameters, param, videoRoomdao, httpCommonUtil);
+		threadPoolTaskExecutor.execute(timedRedEnvelope);
+		responseObject.setCode(GeneralStatus.success.status);
+		responseObject.setMessage(GeneralStatus.success.detail);
+		responseObject.setData(new HashMap<String, Object>());
+		return responseObject;
+	}
+
+	/**
+	 * 主动发红包
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@Override
+	public ResponseObject creatRedEnvelopeByanchor(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+		//根据Pid查询直播间红包信息判断时候能发定时红包
+		Map<String, Object> videoMap = new HashMap<>();
+		String id = String.valueOf(param.get("pid"));
+		videoMap.put("id", id);
+		videoMap = videoRoomService.queryVideoRoomById(commonParameters, videoMap);
+		//从直播间信息中获取定时间隔
+		Integer balance = 1000;
+		Integer money = (Integer) param.get("money");
+		Integer partition = (Integer) param.get("partition");
+		if(balance>(money*partition)){
+			 String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+		     String api = Configuration.getConfigValue("averageRedEnvelope");
+		     String token = String.valueOf(param.get("accessToken"));
+		     String url = ip+api+ ValidateCommonParam.getCommonParametersUrl2(commonParameters, token);
+		     String pid = String.valueOf(param.get("pid"));
+		     url = url+"&pid="+pid+"&partition="+partition+"&money="+money;
+		        
+		     String responseString = httpCommonUtil.doPost(url, param);
+		     if (!StringUtil.isEmpty(responseString)) {
+		           responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+		           //发包成功后修改直播间余额
+		           if(responseObject.getCode()==0&&responseObject.getData()!=null&&responseObject.getData()!=""){
+		        	   videoMap = new HashMap<>();
+		        	   videoMap.put("id", id);
+		        	   balance = balance - (money*partition);
+		        	   videoMap.put("", balance);
+		        	   videoRoomService.updateVideoRoomById(commonParameters, videoMap);
+		           }
+		     } else {
+		          ValidateCommonParam.innerError(responseObject);
+		      }
+		}else{
+			responseObject.setCode(GeneralStatus.failure.status);
+    		responseObject.setMessage(GeneralStatus.failure.detail);
+    		responseObject.setData(null);
+    		return responseObject;
+		}
+		responseObject.setCode(GeneralStatus.success.status);
+		responseObject.setMessage(GeneralStatus.success.detail);
+		responseObject.setData(videoMap);
+		return responseObject;
+		
+	}
+
+	/**
+     * 根据pid查询红包列表
+     */
+	@Override
+	public ResponseObject getRedEnvelope(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("getRedEnvelope");
+        String token = String.valueOf(param.get("accessToken"));
+        String url = ip+api+ ValidateCommonParam.getCommonParametersUrl2(commonParameters, token);
+        String pid = String.valueOf(param.get("pid"));
+        url = url+"&pid="+pid;
+        String responseString = httpCommonUtil.doPost(url, param);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        return responseObject;
+	}
+	
+	/**
+	 * 根据红包Id抢红包
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public ResponseObject grabRedEnvelope(CommonParameters commonParameters, Map<String, Object> param) {
+		ResponseObject responseObject = new ResponseObject();
+        String ip = Configuration.getConfigValue(QueryBasicObject.INTERACTIVEURL);
+        String api = Configuration.getConfigValue("grabRedEnvelope");
+        String token = String.valueOf(param.get("accessToken"));
+        String url = ip+api+ ValidateCommonParam.getCommonParametersUrl2(commonParameters, token);
+        String pid = String.valueOf(param.get("pid"));
+        String redEnvelopeId = String.valueOf(param.get("redEnvelopeId"));
+        url = url+"&pid="+pid+"&redEnvelopeId="+redEnvelopeId;
+        String responseString = httpCommonUtil.doPost(url, param);
+        Map<String, Object> data = new HashMap<String, Object>();
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getCode()==0&&responseObject.getData()!=null){
+            	data = (Map<String, Object>) responseObject.getData();
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        if(!data.isEmpty()){
+        	String hadGrab = String.valueOf(data.get("hadGrab"));
+        	Integer money = 0;
+        	if(data.get("money")!=null){
+        		money = (Integer) data.get("money");
+        	}
+        	if(hadGrab.equals("yes") || money<=0){
+        		responseObject.setCode(GeneralStatus.failure.status);
+        		responseObject.setMessage(GeneralStatus.failure.detail);
+        		responseObject.setData(data);
+        		return responseObject;
+        	}
+        }else{
+        	responseObject.setCode(GeneralStatus.failure.status);
+    		responseObject.setMessage(GeneralStatus.failure.detail);
+    		responseObject.setData(data);
+    		return responseObject;
+        }
+        
+          //hadGrab为 yes时 表示已抢过  
+          //money 为 0 是表示没 抢到
+          //surplus 为红包余额
+//        {"code":0,"message":"处理成功","data":{"hadGrab":"yes","redEnvelopeHistory":{"5a1e6c55ee37871087945017":"10_1517196102803_水哥"}}}
+//        {"code":0,"message":"处理成功","data":{"hadGrab":"no","redEnvelopeHistory":{"5a1e6c55ee37871087945017":"10_1517197279814_水哥"},"money":10,"surplus":10}}
+        
+        //抢到后修改参与者积分
+        api = Configuration.getConfigValue("updateFansMoneyById");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        Map<String, Object> jsonParam = new HashMap<String,Object>();
+        jsonParam.put("accessToken", "accessToken");
+        jsonParam.put("timeStamp", System.currentTimeMillis());
+        jsonParam.put("money", param.get("money"));
+        jsonParam.put("type", "fans");
+        jsonParam.put("userType", "fans");
+        responseString = httpCommonUtil.doPost(url, jsonParam);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        //流向明细
+        api = Configuration.getConfigValue("queryFansMoneyById");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        Map<String, Object> fansMap = new HashMap<>();
+        responseString = httpCommonUtil.doPost(url, jsonParam);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+            if(responseObject.getData()!=null && responseObject.getData()!=""){
+            	fansMap = (Map<String, Object>) responseObject.getData();
+            }
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        //插入逗币明细
+        jsonParam.put("proprietorId",fansMap.get("proprietorId"));
+        jsonParam.put("income",param.get("money"));
+        jsonParam.put("money",fansMap.get("money"));
+        jsonParam.put("proprietorName",fansMap.get("proprietorName"));
+        jsonParam.put("title","红包获取："+param.get("money"));
+        api = Configuration.getConfigValue("creatMoneyDetail");
+        url = ip + ValidateCommonParam.getCommonParametersUrl(commonParameters, "core") + api;
+        responseString = httpCommonUtil.doPost(url, jsonParam);
+        if (!StringUtil.isEmpty(responseString)) {
+            responseObject = JSONUtils.toObject(responseString, ResponseObject.class);
+        } else {
+            ValidateCommonParam.innerError(responseObject);
+        }
+        
+        responseObject.setCode(GeneralStatus.success.status);
+		responseObject.setMessage(GeneralStatus.success.detail);
+		responseObject.setData(data);
+		return responseObject;
+	}
+	
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+}

@@ -1,0 +1,631 @@
+package com.cdvcloud.douting.web.api;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseBody;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.common.GeneralStatus;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.service.LiveRoomService;
+import com.cdvcloud.rms.util.JSONUtils;
+import com.cdvcloud.rms.util.ResponseObject;
+
+/**
+ * 直播间创建
+ * 创建成功后 创建直播通道 并修改直播间信息
+ *
+ * @author zhangyuelong
+ */
+
+@Controller
+@RequestMapping(value = "/{companyId}/{appCode}/{userId}/{serviceCode}/")
+public class LiveRoomApiController {
+    private static final Logger logger = Logger.getLogger("ValidateCommonParam");
+
+
+    @Autowired
+    private LiveRoomService liveRoomService;
+
+    /**
+     * 创建 直播间通道
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/createLiveRoom")
+    public ResponseObject createLiveRoom(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            logger.info("class : LiveRoomApiController --> method : createLiveRoom 接收到参数" + strJson);
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>();
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : createLiveRoom " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户非空校验
+
+            //参数非空验证
+            List<String> names = new ArrayList<String>();
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : createLiveRoom " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            String id = liveRoomService.createLiveRoom(commonParameters, jsonMap);
+            if(id==null){
+            	resObj.setCode(GeneralStatus.insert_error.status);
+            	resObj.setMessage(GeneralStatus.insert_error.detail);
+            	resObj.setData(null);
+            }
+            Map<String, Object> data = new HashMap<String, Object>();
+            data.put("id", id);
+            ValidateCommonParam.executeSuccess(resObj, data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : createLiveRoom处理异常！");
+        }
+        return resObj;
+    }
+    
+    
+    
+    /**
+     * 通过直播间ID查询直播间信息
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/queryLiveRoomById")
+    public ResponseObject queryLiveRoomById(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            logger.info("class : LiveRoomApiController --> method : queryLiveRoomById 接收到参数" + strJson);
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>();
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : queryLiveRoomById " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户非空校验
+
+            //参数非空验证
+          //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("id");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : VideoRoomApiController --> method : queryVideoRoomById " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            Map<String, Object> data = liveRoomService.queryLiveRoomById(commonParameters, jsonMap);
+            ValidateCommonParam.executeSuccess(resObj, data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : queryLiveRoomById处理异常！");
+        }
+        return resObj;
+    }
+    
+    
+    /**
+     * 删除直播间和直播通道
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/deleteLiveRoomChannel")
+    public ResponseObject deleteLiveRoomChannel(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            logger.info("class : LiveRoomApiController --> method : deleteLiveRoomChannel 接收到参数" + strJson);
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>();
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : deleteLiveRoomChannel " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户非空校验
+
+            //参数非空验证
+          //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("id");
+            names.add("virtualId");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : VideoRoomApiController --> method : deleteLiveRoomChannel " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            long influenceLine = liveRoomService.deleteLiveRoomChannel(commonParameters, jsonMap);
+            if(influenceLine>0){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("influenceLine", influenceLine);
+            	ValidateCommonParam.executeSuccess(resObj, data);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : deleteLiveRoomChannel处理异常！");
+        }
+        return resObj;
+    }
+    
+    /**
+     * 根据直播间ID
+     * 重制直播间直播通道
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/resetLiveChannelById")
+    public ResponseObject resetLiveChannelById(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            logger.info("class : LiveRoomApiController --> method : resetLiveChannelById 接收到参数" + strJson);
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>();
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : resetLiveChannelById " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户非空校验
+
+            //参数非空验证
+          //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("id");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : VideoRoomApiController --> method : resetLiveChannelById " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            long influenceLine = liveRoomService.resetLiveChannelById(commonParameters, jsonMap);
+            if(influenceLine>0){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("influenceLine", influenceLine);
+            	ValidateCommonParam.executeSuccess(resObj, data);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : resetLiveChannelById处理异常！");
+        }
+        return resObj;
+    }
+    
+    
+    /**
+     * 结束直播
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/stopLive")
+    public ResponseObject stopLive(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+        ResponseObject resObj = new ResponseObject();
+        logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+        try {
+            logger.info("class : LiveRoomApiController --> method : stopLive 接收到参数" + strJson);
+            //数据解析
+            Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+            Map<String, Object> errorMap = new HashMap<String, Object>();
+            //参数校验
+            boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : stopLive " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            //用户非空校验
+
+            //参数非空验证
+          //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("id");
+            names.add("virtualId");
+            
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : VideoRoomApiController --> method : stopLive " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            long influenceLine = liveRoomService.stopLive(commonParameters, jsonMap);
+            if(influenceLine>0){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("influenceLine", influenceLine);
+            	ValidateCommonParam.executeSuccess(resObj, data);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : stopLive处理异常！");
+        }
+        return resObj;
+    }
+    
+    
+    /**
+     * 创建 网红直播间公告
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/createPictureText")
+    public ResponseObject createPictureText(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+    	 ResponseObject resObj = new ResponseObject();
+         logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+         try {
+             logger.info("class : LiveRoomApiController --> method : createPictureText 接收到参数" + strJson);
+             //数据解析
+             Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+             Map<String, Object> errorMap = new HashMap<String, Object>();
+             //参数校验
+             boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+             if (!validate) {
+                 logger.error("class : LiveRoomApiController --> method : createPictureText " + errorMap.get(Constants.MESSAGE));
+                 ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                 return resObj;
+             }
+            //用户非空校验
+
+            //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("videoRoomId");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : createPictureText " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            long influenceLine = liveRoomService.createPictureText(commonParameters, jsonMap);
+            if(influenceLine>0){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("influenceLine", influenceLine);
+            	ValidateCommonParam.executeSuccess(resObj, data);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : createPictureText处理异常！");
+        }
+        return resObj;
+    }
+    
+    /**
+     * 查询 网红直播间公告
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/queryAnnouncement")
+    public ResponseObject queryAnnouncement(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+    	 ResponseObject resObj = new ResponseObject();
+         logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+         try {
+             logger.info("class : LiveRoomApiController --> method : queryAnnouncement 接收到参数" + strJson);
+             //数据解析
+             Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+             Map<String, Object> errorMap = new HashMap<String, Object>();
+             //参数校验
+             boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+             if (!validate) {
+                 logger.error("class : LiveRoomApiController --> method : queryAnnouncement " + errorMap.get(Constants.MESSAGE));
+                 ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                 return resObj;
+             }
+            //用户非空校验
+
+            //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("videoRoomId");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : queryAnnouncement " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            String content = liveRoomService.queryAnnouncement(commonParameters, jsonMap);
+            Map<String, Object> data = new HashMap<String, Object>();
+        	data.put("content", content);
+        	ValidateCommonParam.executeSuccess(resObj, data);
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : queryAnnouncement处理异常！");
+        }
+        return resObj;
+    }
+    
+    /**
+     * 直播间粉丝禁言
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/liveRoomFansGag")
+    public ResponseObject liveRoomFansGag(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+    	 ResponseObject resObj = new ResponseObject();
+         logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+         try {
+             logger.info("class : LiveRoomApiController --> method : liveRoomFansGag 接收到参数" + strJson);
+             //数据解析
+             Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+             Map<String, Object> errorMap = new HashMap<String, Object>();
+             //参数校验
+             boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+             if (!validate) {
+                 logger.error("class : LiveRoomApiController --> method : liveRoomFansGag " + errorMap.get(Constants.MESSAGE));
+                 ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                 return resObj;
+             }
+            //用户非空校验
+
+            //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("fansId");
+            names.add("videoRoomId");
+            names.add("phone");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : liveRoomFansGag " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            long influenceLine = liveRoomService.liveRoomFansGag(commonParameters, jsonMap);
+            if(influenceLine>0){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("influenceLine", influenceLine);
+            	ValidateCommonParam.executeSuccess(resObj, data);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : liveRoomFansGag处理异常！");
+        }
+        return resObj;
+    }
+    
+    /**
+     * 解除直播间粉丝禁言
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/relieveProhibit")
+    public ResponseObject relieveProhibit(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+    	 ResponseObject resObj = new ResponseObject();
+         logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+         try {
+             logger.info("class : LiveRoomApiController --> method : relieveProhibit 接收到参数" + strJson);
+             //数据解析
+             Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+             Map<String, Object> errorMap = new HashMap<String, Object>();
+             //参数校验
+             boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+             if (!validate) {
+                 logger.error("class : LiveRoomApiController --> method : relieveProhibit " + errorMap.get(Constants.MESSAGE));
+                 ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                 return resObj;
+             }
+            //用户非空校验
+
+            //参数非空验证
+            List<String> names = new ArrayList<String>();
+            names.add("fansId");
+            names.add("videoRoomId");
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : relieveProhibit " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            long influenceLine = liveRoomService.relieveProhibit(commonParameters, jsonMap);
+            if(influenceLine>0){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("influenceLine", influenceLine);
+            	ValidateCommonParam.executeSuccess(resObj, data);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : relieveProhibit处理异常！");
+        }
+        return resObj;
+    }
+    
+    /**
+     * 添加直播间商品
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/createLiveGoods")
+    public ResponseObject createLiveGoods(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+    	 ResponseObject resObj = new ResponseObject();
+         logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+         try {
+             logger.info("class : LiveRoomApiController --> method : createLiveGoods 接收到参数" + strJson);
+             //数据解析
+             Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+             Map<String, Object> errorMap = new HashMap<String, Object>();
+             //参数校验
+             boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+             if (!validate) {
+                 logger.error("class : LiveRoomApiController --> method : createLiveGoods " + errorMap.get(Constants.MESSAGE));
+                 ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                 return resObj;
+             }
+            //用户非空校验
+
+            //参数非空验证
+            List<String> names = new ArrayList<String>();
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : createLiveGoods " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            String id = liveRoomService.createLiveGoods(commonParameters, jsonMap);
+            if(id!=null){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("id", id);
+            	ValidateCommonParam.executeSuccess(resObj, id);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : createLiveGoods处理异常！");
+        }
+        return resObj;
+    }
+    /**
+     * 删除直播间商品
+     *
+     * @param session          session信息
+     * @param commonParameters commonParameters
+     * @param strJson          请求参数
+     * @return 响应对象
+     */
+    @ResponseBody
+    @RequestMapping("v1/liveRoom/deleteLiveGoods")
+    public ResponseObject deleteLiveGoods(@PathVariable String companyId, @PathVariable String appCode, @PathVariable String userId, @PathVariable String serviceCode, @Validated CommonParameters commonParameters, @RequestBody String strJson) {
+    	 ResponseObject resObj = new ResponseObject();
+         logger.info(ValidateCommonParam.getRequestInfo(companyId, appCode, userId, serviceCode, strJson));
+         try {
+             logger.info("class : LiveRoomApiController --> method : deleteLiveGoods 接收到参数" + strJson);
+             //数据解析
+             Map<String, Object> jsonMap = JSONUtils.json2map(strJson);
+             Map<String, Object> errorMap = new HashMap<String, Object>();
+             //参数校验
+             boolean validate = ValidateCommonParam.validateCommonParam(commonParameters, jsonMap, errorMap);
+             if (!validate) {
+                 logger.error("class : LiveRoomApiController --> method : deleteLiveGoods " + errorMap.get(Constants.MESSAGE));
+                 ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                 return resObj;
+             }
+            //用户非空校验
+
+            //参数非空验证
+            List<String> names = new ArrayList<String>();
+            validate = ValidateCommonParam.validateValue(names, jsonMap, errorMap);
+            if (!validate) {
+                logger.error("class : LiveRoomApiController --> method : deleteLiveGoods " + errorMap.get(Constants.MESSAGE));
+                ValidateCommonParam.parameterError(resObj, errorMap.get(Constants.MESSAGE));
+                return resObj;
+            }
+            long influenceLine = liveRoomService.deleteLiveGoods(commonParameters, jsonMap);
+            if(influenceLine>0){
+            	Map<String, Object> data = new HashMap<String, Object>();
+            	data.put("influenceLine", influenceLine);
+            	ValidateCommonParam.executeSuccess(resObj, data);
+            }else{
+            	resObj.setCode(GeneralStatus.failure.status);
+            	resObj.setMessage(GeneralStatus.failure.detail);
+            	resObj.setData("");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            ValidateCommonParam.innerError(resObj);
+            logger.error("class : LiveRoomApiController --> method : deleteLiveGoods处理异常！");
+        }
+        return resObj;
+    }
+}

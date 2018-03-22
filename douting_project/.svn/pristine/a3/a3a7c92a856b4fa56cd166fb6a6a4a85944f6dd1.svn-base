@@ -1,0 +1,25 @@
+package com.cdvcloud.douting.service;
+
+import java.util.Map;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.rms.util.ResponseObject;
+
+/**
+ * 
+ * 打赏管理
+ * 
+ */
+public interface RewardAppService extends BaseService{
+
+	
+	/**
+	 * 打赏
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	ResponseObject updateMonetByReward(CommonParameters commonParameters,Map<String, Object> param);
+
+
+}

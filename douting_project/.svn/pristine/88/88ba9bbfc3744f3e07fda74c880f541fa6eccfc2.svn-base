@@ -1,0 +1,256 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.RedisUtilDao;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.douting.domain.VideoRoom;
+import com.cdvcloud.douting.service.LiveChannelService;
+import com.cdvcloud.douting.service.LiveRoomService;
+import com.cdvcloud.douting.service.NumCountService;
+import com.cdvcloud.rms.util.ResponseObject;
+import com.cdvcloud.rms.util.StringUtil;
+
+/**
+ * 调用其他服务
+ *
+ * @author SongYuanKun
+ * @date 2017/11/9
+ */
+@Service
+public class LiveRoomServiceImpl extends BaseServiceImpl implements LiveRoomService {
+	
+	@Autowired
+	private VideoRoomDao videoRoomDao;
+	@Autowired
+    private NumCountService numCountService;
+	@Autowired
+	private LiveChannelService liveChannelService;
+	
+	@Autowired
+	private RedisUtilDao redisUtilDao;
+	
+	@SuppressWarnings("unchecked")
+	@Override
+	public String createLiveRoom(CommonParameters commonParameters, Map<String, Object> param) {
+		Map<String, Object> videoRoomMap = new HashMap<String, Object>();
+
+        List<String> list = Arrays.asList(VideoRoom.REMARK,VideoRoom.NAME, VideoRoom.STATUS,VideoRoom.H5URL, VideoRoom.THUMBNAILURL, VideoRoom.OTHERSH5URL, VideoRoom.STARTTIME, VideoRoom.ENDTIME,
+        		 VideoRoom.TYPE,VideoRoom.OPTIONS, VideoRoom.USERTYPE, VideoRoom.WEIGHT);
+         /*更新信息*/
+        videoRoomMap.putAll(ValidateCommonParam.getFieldsMap(list, param));
+
+        /*创建信息*/
+        videoRoomMap.putAll(ValidateCommonParam.getCreateMessage(commonParameters));
+
+        /* 基础信息 */
+        if(param.get(VideoRoom.OTHERS) instanceof Map){
+    		Map<String, Object> map = (Map<String, Object>) param.get(VideoRoom.OTHERS);
+    		videoRoomMap.putAll(map);
+    	}
+        videoRoomMap.put(VideoRoom.LOOKNUM, Constants.ZERO);
+        videoRoomMap.put(VideoRoom.COMMENTNUM, Constants.ZERO);
+        String id = null;
+        ResponseObject responseObject = liveChannelService.createLiveChannel(commonParameters, param);
+        Map<String, Object> liveChannel = new HashMap<String, Object>();
+        if( responseObject.getData()!=null && responseObject.getCode()==0){
+        	liveChannel = (Map<String, Object>) responseObject.getData();
+        	String vPushAddress = String.valueOf(liveChannel.get("vPushAddress"));
+        	vPushAddress = vPushAddress.replace("onlive.aircdvcloud.com", "192.168.0.103");
+        	videoRoomMap.put("virtualId", liveChannel.get("virtualId"));
+//        	videoRoomMap.put("vPushAddress", liveChannel.get("vPushAddress"));
+        	videoRoomMap.put("vPushAddress", vPushAddress);
+        	videoRoomMap.put("vPlayRtmpAddress", liveChannel.get("vPlayRtmpAddress"));
+        	videoRoomMap.put("vPlayHlsAddress", liveChannel.get("vPlayHlsAddress"));
+        	videoRoomMap.put("vPlayCdnAddress", liveChannel.get("vPlayCdnAddress"));
+        	id = videoRoomDao.createVideoRoom(videoRoomMap);
+        }
+		return id;
+	}
+	/**
+	 * 通过直播间ID查询直播间信息
+	 */
+	@Override
+	public Map<String, Object> queryLiveRoomById(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("id"));
+        Map<String, Object> videoRoomMap = videoRoomDao.queryVideoRoomById(id);
+        long numCount = numCountService.queryNumCount("user", commonParameters, "lookNum", String.valueOf(videoRoomMap.get(VideoRoom.ID)));
+        videoRoomMap.put(VideoRoom.LOOKNUM, numCount);
+        return videoRoomMap;
+	}
+	/**
+	 * 删除直播间直播通道
+	 */
+	@Override
+	public long deleteLiveRoomChannel(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("id"));
+		long temp = 0;
+		ResponseObject responseObject = liveChannelService.deleteLiveChannel(commonParameters, param);
+	    if( responseObject.getData()!=null && responseObject.getCode()==0){
+	        temp = videoRoomDao.deleteVideoRoom(id);
+	    }
+		return temp;
+	}
+	/**
+	 * 重制直播间通道
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public long resetLiveChannelById(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("id"));
+		long temp = 0;
+		ResponseObject responseObject = null;
+		if(param.get("virtualId")!=null){
+			//删除原有通道信息释放资源
+			responseObject = liveChannelService.deleteLiveChannel(commonParameters, param);
+		}
+		//新建直播通道
+		responseObject = liveChannelService.createLiveChannel(commonParameters, param);
+		
+		Map<String, Object> liveChannel = new HashMap<String, Object>();
+        if( responseObject.getData()!=null && responseObject.getCode()==0){
+        	liveChannel = (Map<String, Object>) responseObject.getData();
+        	String vPushAddress = String.valueOf(liveChannel.get("vPushAddress"));
+        	vPushAddress = vPushAddress.replace("onlive.aircdvcloud.com", "192.168.0.103");
+        	
+        	Map<String, Object> videoRoomMap = new HashMap<String, Object>();
+        	videoRoomMap.put("virtualId", liveChannel.get("virtualId"));
+//        	videoRoomMap.put("vPushAddress", liveChannel.get("vPushAddress"));
+        	videoRoomMap.put("vPushAddress", vPushAddress);
+        	videoRoomMap.put("vPlayRtmpAddress", liveChannel.get("vPlayRtmpAddress"));
+        	videoRoomMap.put("vPlayHlsAddress", liveChannel.get("vPlayHlsAddress"));
+        	videoRoomMap.put("vPlayCdnAddress", liveChannel.get("vPlayCdnAddress"));
+        	temp = videoRoomDao.updateVideoRoomById(id, videoRoomMap);
+        }
+		return temp;
+	}
+	/**
+	 * 结束直播删除直播通道是释放资源
+	 */
+	@Override
+	public long stopLive(CommonParameters commonParameters, Map<String, Object> param) {
+		String id = String.valueOf(param.get("id"));
+		long temp = 0;
+		ResponseObject responseObject = null;
+		//删除原有通道信息释放资源
+		responseObject = liveChannelService.deleteLiveChannel(commonParameters, param);
+        if( responseObject.getData()!=null && responseObject.getCode()==0){
+        	Map<String, Object> videoRoomMap = new HashMap<String, Object>();
+        	videoRoomMap.put("isLive", 0);
+        	videoRoomMap.put("virtualId", "");
+        	videoRoomMap.put("vPushAddress", "");
+        	videoRoomMap.put("vPlayRtmpAddress", "");
+        	videoRoomMap.put("vPlayHlsAddress", "");
+        	videoRoomMap.put("vPlayCdnAddress", "");
+        	temp = videoRoomDao.updateVideoRoomById(id, videoRoomMap);
+        }
+		return temp;
+	}
+	/**
+	 * 创建网红直播公告
+	 */
+	@Override
+	public long createPictureText(CommonParameters commonParameters, Map<String, Object> param) {
+		String pid = String.valueOf(param.get("videoRoom"));
+		String content = String.valueOf(param.get("content"));
+		redisUtilDao.publishNotice(pid, content);
+		return 1;
+	}
+	/**
+	 * 直播间禁言
+	 */
+	@Override
+	public long liveRoomFansGag(CommonParameters commonParameters, Map<String, Object> param) {
+		String pid = String.valueOf(param.get("videoRoom"));
+		String fansId = String.valueOf(param.get("fansId"));
+		String name = String.valueOf(param.get("name"));
+		String phone = String.valueOf(param.get("phone"));
+		redisUtilDao.prohibitFans(pid, fansId, name, phone);
+		Map<String, Object> prohibitFans = new HashMap<String, Object>();
+		prohibitFans.put("fansId", fansId);
+		prohibitFans.put("name", name);
+		prohibitFans.put("phone", phone);
+		
+		param = new HashMap<String, Object>();
+		param.put("id", pid);
+		param.put("prohibitFans", prohibitFans);
+		return videoRoomDao.addToSetFans(param);
+	}
+	/**
+	 * 查询直播间公告
+	 */
+	@Override
+	public String queryAnnouncement(CommonParameters commonParameters, Map<String, Object> param) {
+		String pid = String.valueOf(param.get("videoRoom"));
+		return redisUtilDao.getNotice(pid);
+	}
+	/**
+	 * 解除粉丝禁言
+	 */
+	@SuppressWarnings("unchecked")
+	@Override
+	public long relieveProhibit(CommonParameters commonParameters, Map<String, Object> param) {
+		String pid = String.valueOf(param.get("videoRoom"));
+		String fansId = String.valueOf(param.get("fansId"));
+		
+		Map<String, Object> roomMap = videoRoomDao.queryVideoRoomById(pid);
+		
+		if(!roomMap.isEmpty()){
+			if(roomMap.get("prohibitFans")!=null){
+				List<Map<String, Object>> list = (List<Map<String, Object>>) roomMap.get("prohibitFans");
+				if(!StringUtil.isEmpty(list)){
+					for (Map<String, Object> map : list) {
+						String fansId1 = String.valueOf(map.get("fansId"));
+	                    if (fansId1.equals(fansId)) {
+	                        list.remove(map);
+	                        break;
+	                    }
+					}
+				}
+				Map<String, Object> update = new HashMap<String, Object>(16);
+                update.put("prohibitFans", list);
+                long temp = videoRoomDao.updateVideoRoomById(pid, update);
+                //删除缓存
+                redisUtilDao.relieveProhibit(pid, fansId);
+                return temp;
+			}
+		}
+		
+		return 0;
+	}
+	/**
+	 * 查询粉丝在该直播间是否能发言
+	 * @param commonParameters
+	 * @param param
+	 * @return
+	 */
+	@Override
+	public boolean isProhibit(CommonParameters commonParameters, Map<String, Object> param) {
+		String pid = String.valueOf(param.get("videoRoom"));
+		String fansId = String.valueOf(param.get("fansId"));
+		
+		long temp = redisUtilDao.isProhibit(pid, fansId);
+		if(temp>0){
+			return true;
+		}
+		param = new HashMap<>();
+		param.put(VideoRoom.ID, pid);
+		param.put("prohibitFans.fansId", fansId);
+		Map<String, Object> vMap = videoRoomDao.queryVideoRoom(param);
+		if(!vMap.isEmpty()){
+			videoRoomDao.updateRedis(pid);
+			return true;
+		}
+		return false;
+	}
+	
+}

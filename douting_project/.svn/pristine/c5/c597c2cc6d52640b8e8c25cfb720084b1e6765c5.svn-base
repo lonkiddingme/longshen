@@ -1,0 +1,44 @@
+package com.cdvcloud.douting.dao.impl;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import redis.clients.jedis.JedisCluster;
+
+import com.cdvcloud.douting.common.Configuration;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.dao.RedisUtilDao;
+import com.cdvcloud.douting.domain.Content;
+import com.cdvcloud.rms.util.DateUtil;
+import com.cdvcloud.rms.util.JSONUtils;
+/**
+ * 用于redis操作
+ * RefisUtilDaoImpl
+ * @Description 
+ * @author wlf
+ * @data 2017-11-16 下午1:56:36
+ */
+@Repository
+public class RedisUtilDaoImpl implements RedisUtilDao {
+	@Autowired
+	private JedisCluster jedisCluster;
+	/**
+	 * 记录内容最新评论时间
+	 * @param docid
+	 */
+	public void NewestCommentedContent(String docid){
+		long utime_Long = System.currentTimeMillis();
+		String utime = DateUtil.getCurrentDateTime();
+		Map<String, Object> timeMap = new HashMap<String, Object>();
+		timeMap.put(Content.UTIME, utime);
+		timeMap.put(Content.UTIME_LONG, utime_Long);
+		String json = JSONUtils.toJson(timeMap);
+		jedisCluster.hset(Content.NEWESTCOMMENTTIME, docid, json);
+		String outTime = Configuration.getConfigValue(Constants.NEWCOMMENTOUTTIME);
+		Integer longTime = Integer.parseInt(outTime);
+		jedisCluster.expire(Content.NEWESTCOMMENTTIME, longTime);
+	}
+}

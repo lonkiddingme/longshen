@@ -1,0 +1,242 @@
+package com.cdvcloud.douting.service.impl;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.cdvcloud.douting.common.CommonParameters;
+import com.cdvcloud.douting.common.Constants;
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.douting.domain.VideoRoom;
+import com.cdvcloud.douting.service.NumCountService;
+import com.cdvcloud.douting.service.VideoRoomService;
+import com.cdvcloud.rms.util.Pages;
+
+/**
+ * 逗看视频直播间管理
+ *
+ * @author zhangyuelong
+ */
+
+@Service
+public class VideoRoomServiceImpl extends BaseServiceImpl implements VideoRoomService {
+
+    @Autowired
+    private VideoRoomDao videoRoomDao;
+    @Autowired
+    private NumCountService numCountService;
+    /**
+     * 创建逗看视频直播間
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 直播间ID
+     */
+    @Override
+    public String createVideoRoom(CommonParameters commonParameters, Map<String, Object> param) {
+        Map<String, Object> videoRoomMap = new HashMap<String, Object>();
+
+        List<String> list = Arrays.asList(VideoRoom.REMARK,VideoRoom.NAME, VideoRoom.STATUS,VideoRoom.H5URL, VideoRoom.THUMBNAILURL, VideoRoom.OTHERSH5URL, VideoRoom.STARTTIME, VideoRoom.ENDTIME, 
+        		VideoRoom.OPTIONS, VideoRoom.USERTYPE, VideoRoom.WEIGHT,VideoRoom.OTHERS, VideoRoom.TYPE);
+         /*更新信息*/
+        videoRoomMap.putAll(ValidateCommonParam.getFieldsMap(list, param));
+
+        /*创建信息*/
+        videoRoomMap.putAll(ValidateCommonParam.getCreateMessage(commonParameters));
+
+        /* 基础信息 */
+        videoRoomMap.put(VideoRoom.LOOKNUM, Constants.ZERO);
+        videoRoomMap.put(VideoRoom.COMMENTNUM, Constants.ZERO);
+        return videoRoomDao.createVideoRoom(videoRoomMap);
+    }
+
+    /**
+     * 删除逗看视频直播間
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 直播间ID
+     */
+    @Override
+    public long deleteVideoRoom(CommonParameters commonParameters, Map<String, Object> param) {
+        String id = String.valueOf(param.get("id"));
+        return videoRoomDao.deleteVideoRoom(id);
+    }
+
+    /**
+     * 修改逗看视频直播間
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 直播间ID
+     */
+    @Override
+    public long updateVideoRoomById(CommonParameters commonParameters, Map<String, Object> param) {
+        Map<String, Object> videoRoomMap = new HashMap<String, Object>();
+
+        List<String> list = Arrays.asList(VideoRoom.NAME,VideoRoom.OTHERS, VideoRoom.REMARK,VideoRoom.H5URL, VideoRoom.OTHERSH5URL, VideoRoom.TYPE,
+        		VideoRoom.THUMBNAILURL,VideoRoom.STATUS, VideoRoom.STARTTIME, VideoRoom.ENDTIME, VideoRoom.OPTIONS, VideoRoom.USERTYPE);
+          /*更新信息*/
+        videoRoomMap.putAll(ValidateCommonParam.getFieldsMap(list, param));
+		/*更新人信息*/
+        videoRoomMap.putAll(ValidateCommonParam.getUpdateMessage(commonParameters));
+        String id = String.valueOf(param.get("id"));
+        return videoRoomDao.updateVideoRoomById(id, videoRoomMap);
+    }
+
+    /**
+     * 根据ID逗看视频直播間
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 直播间ID
+     */
+    @Override
+    public Map<String, Object> queryVideoRoomById(CommonParameters commonParameters, Map<String, Object> param) {
+        String id = String.valueOf(param.get("id"));
+        Map<String, Object> videoRoomMap = videoRoomDao.queryVideoRoomById(id);
+        long numCount = numCountService.queryNumCount("user", commonParameters, "lookNum", String.valueOf(videoRoomMap.get(VideoRoom.ID)));
+        videoRoomMap.put(VideoRoom.LOOKNUM, numCount);
+        return videoRoomMap;
+    }
+
+    /**
+     * 分页查询逗看视频直播間
+     *
+     * @param commonParameters commonParameters
+     * @param param            请求参数
+     * @return 直播间ID
+     */
+    @Override
+    public Pages queryVideoRoom4Page(CommonParameters commonParameters, Map<String, Object> param) {
+        // 查询参数抽取
+        Map<String, Object> queryMap = new HashMap<String, Object>();
+        List<String> queryList = Arrays.asList("keyWord", "keyValue", "keyTime", "startTime", "endTime", "conditionParam");
+        /*更新信息*/
+        queryMap.putAll(ValidateCommonParam.getFieldsMap(queryList, param));
+
+        // 排序
+        Map<String, Object> sortMap = new HashMap<String, Object>();
+        sortMap.put("sort", param.get("sort"));
+        // 返回字段
+        Map<String, Object> backMap = new HashMap<String, Object>();
+        backMap.put("backParam", param.get("backParam"));
+        // 当前页
+        Map<String, Object> currentPageMap = new HashMap<String, Object>();
+        currentPageMap.put("currentPage", param.get("currentPage"));
+        // 每页条数
+        Map<String, Object> pageNumMap = new HashMap<String, Object>();
+        pageNumMap.put("pageNum", param.get("pageNum"));
+        
+        Pages videoRoomPage = videoRoomDao.queryVideoRoom4Page(sortMap, queryMap, backMap, currentPageMap, pageNumMap);
+        
+        return videoRoomPage;
+    }
+
+    @Override
+    public long updateVideoRoomStatus(CommonParameters commonParameters, Map<String, Object> param) {
+        String id = (String) param.get("id");
+        Integer status = (Integer) param.get(VideoRoom.STATUS);
+        String status_zh = String.valueOf(param.get(VideoRoom.STATUS_ZH));
+
+        Map<String, Object> update = new HashMap<String, Object>(16);
+        update.put(VideoRoom.STATUS, status);
+        update.put(VideoRoom.STATUS_ZH, status_zh);
+
+         /*更新人信息*/
+        update.putAll(ValidateCommonParam.getUpdateMessage(commonParameters));
+        return videoRoomDao.updateVideoRoomStatus(id, update);
+    }
+
+    /**
+     * 查询所有直播间
+     */
+    @Override
+    public List<Map<String, Object>> queryVideoRoomAll(CommonParameters commonParameters, Map<String, Object> param) {
+        // 查询参数抽取
+        Map<String, Object> queryMap = new HashMap<String, Object>(16);
+
+        List<String> queryList = Arrays.asList("keyWord", "keyValue", "keyTime", "startTime", "endTime", "conditionParam");
+        /*更新信息*/
+        queryMap.putAll(ValidateCommonParam.getFieldsMap(queryList, param));
+        // 排序
+        Map<String, Object> sortMap = new HashMap<String, Object>(16);
+        sortMap.put("sort", param.get("sort"));
+        // 返回字段
+        Map<String, Object> backMap = new HashMap<String, Object>(16);
+        backMap.put("backParam", param.get("backParam"));
+
+        return videoRoomDao.queryVideoRoomAll(sortMap, queryMap, backMap);
+    }
+
+    /**
+     * 统计直播间状态
+     */
+    @Override
+    public long countVideoRoom(CommonParameters commonParameters, Map<String, Object> param) {
+        // 查询参数抽取
+        Map<String, Object> queryMap = new HashMap<String, Object>();
+
+        List<String> queryList = Arrays.asList("keyWord", "keyValue", "keyTime", "startTime", "endTime", "conditionParam");
+        /*更新信息*/
+        queryMap.putAll(ValidateCommonParam.getFieldsMap(queryList, param));
+        return videoRoomDao.countVideoRoom(queryMap);
+    }
+
+    //按条件查询
+	@Override
+	public Map<String, Object> queryVideoRoom(Map<String, Object> queryMap) {
+		// TODO Auto-generated method stub
+		return videoRoomDao.queryVideoRoom(queryMap);
+	}
+	/**
+	 * 直播通道回调绑定
+     * isLive为直播间状态  1为正在直播 0为结束直播
+     * @param map
+     */
+	public long bind(Map<String,Object> map){
+    	String channId=String.valueOf(map.get("channelId"));
+		String virtualId=String.valueOf(map.get("virtualId"));
+		Map<String,Object> wherelive=new HashMap<String,Object>();
+		wherelive.put("virtualId", virtualId);
+		Map<String,Object> livemap=videoRoomDao.queryVideoRoom(wherelive);
+		long temp = 0;
+		if(!livemap.isEmpty()){
+			Map<String,Object> update=new HashMap<String,Object>();
+			String id = String.valueOf(livemap.get(VideoRoom.ID));
+			update.put("isLive", 1);
+			update.put("channelId",channId);
+			update.put("virtualId",virtualId);
+			temp = videoRoomDao.updateVideoRoomById(id,update);
+		}
+		return temp;
+    }
+	/**
+	 * 直播通道回调解绑
+     * isLive为直播间状态  1为正在直播 0为结束直播
+     * @param map
+     */
+    public long unbind(Map<String,Object> map){
+//    	String channId=String.valueOf(map.get("channelId"));
+		String virtualId=String.valueOf(map.get("virtualId"));
+		Map<String,Object> wherelive=new HashMap<String,Object>();
+		wherelive.put("virtualId", virtualId);
+		Map<String,Object> livemap=videoRoomDao.queryVideoRoom(wherelive);
+		long temp = 0;
+		if(!livemap.isEmpty()){
+			Map<String,Object> update=new HashMap<String,Object>();
+			String id = String.valueOf(livemap.get(VideoRoom.ID));
+			update.put("isLive", 0);
+			update.put("virtualId", "");
+			update.put("channelId","");
+			temp = videoRoomDao.updateVideoRoomById(id,update);
+		}
+		return temp;
+    }
+    
+}

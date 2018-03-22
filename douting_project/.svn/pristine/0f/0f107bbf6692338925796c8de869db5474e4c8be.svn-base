@@ -1,0 +1,174 @@
+package com.cdvcloud.douting.dao.impl;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import org.bson.Document;
+import org.bson.types.ObjectId;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Repository;
+
+import com.cdvcloud.douting.common.ValidateCommonParam;
+import com.cdvcloud.douting.dao.VideoRoomDao;
+import com.cdvcloud.douting.domain.BasicObject;
+import com.cdvcloud.douting.domain.Broadcast;
+import com.cdvcloud.douting.domain.VideoRoom;
+import com.cdvcloud.rms.dao.BasicDao;
+import com.cdvcloud.rms.dao.mongodb.QueryOperators;
+import com.cdvcloud.rms.util.Pages;
+
+/**
+ * 逗看视频直播间管理
+ */
+@Repository
+public class VideoRoomDaoImpl implements VideoRoomDao {
+
+    @Autowired
+    private BasicDao basicDao;
+
+    /**
+     * 创建逗看视频直播间
+     */
+    @SuppressWarnings("unchecked")
+	@Override
+    public String createVideoRoom(Map<String, Object> videoRoomMap) {
+    	
+    	if(videoRoomMap.get(VideoRoom.OTHERS) instanceof Map){
+    		Map<String, Object> map = (Map<String, Object>) videoRoomMap.get(VideoRoom.OTHERS);
+    		videoRoomMap.putAll(map);
+    	}
+    	
+    	
+        return basicDao.insert(VideoRoom.VIDEOROOM, videoRoomMap);
+    }
+
+    /**
+     * 更新逗看视频直播间
+     *
+     * @param id     更新直播间的主键
+     * @param update 更新数据
+     * @return 更新条数
+     */
+    @SuppressWarnings("unchecked")
+	@Override
+    public long updateVideoRoomById(String id, Map<String, Object> update) {
+    	if(update.get(VideoRoom.OTHERS) instanceof Map){
+    		Map<String, Object> map = (Map<String, Object>) update.get(VideoRoom.OTHERS);
+    		update.putAll(map);
+    	}
+        /*查询条件*/
+        Map<String, Object> queryFilter = new HashMap<String, Object>();
+        queryFilter.put(VideoRoom.ID, new ObjectId(id));
+        return basicDao.updateOneBySet(VideoRoom.VIDEOROOM, queryFilter, update);
+    }
+
+    /**
+     * 删除逗看视频直播间
+     *
+     * @param id     删除直播间的主键
+     * @param update 删除数据
+     * @return 删除条数
+     */
+    @Override
+    public long deleteVideoRoom(String id) {
+        Map<String, Object> filter = new HashMap<String, Object>();
+        filter.put(VideoRoom.ID, new ObjectId(id));
+        return basicDao.deleteOne(VideoRoom.VIDEOROOM, filter);
+    }
+
+    /**
+     * 根据ID查询逗看视频直播间
+     *
+     * @param id     删除直播间的主键
+     * @param update 删除数据
+     * @return 删除条数
+     */
+    @Override
+    public Map<String, Object> queryVideoRoomById(String id) {
+        return basicDao.findOne(VideoRoom.VIDEOROOM, id);
+    }
+
+    /**
+     * 批量查询逗看直播间
+     *
+     * @param ids     id数组
+     * @param backMap 返回字段
+     * @param sortMap 排序字段
+     * @return 逗看直播间数据
+     */
+    @Override
+    public List<Map<String, Object>> queryVideoRoomByIds(List<String> ids, Map<String, Object> backMap, Map<String, Object> sortMap) {
+        List<ObjectId> objectIds = new ArrayList<ObjectId>();
+        for (String id : ids) {
+            objectIds.add(new ObjectId(id));
+        }
+        Map<String, Object> queryFilter = new HashMap<String, Object>();
+        queryFilter.put(BasicObject.ID, new Document(QueryOperators.IN, objectIds));
+        // 排序
+        Map<String, Object> sortFilter = ValidateCommonParam.getSortMap(sortMap);
+        // 返回字段
+        Map<String, Object> backFilter = ValidateCommonParam.getBackMap(backMap);
+        return basicDao.findAllObject(VideoRoom.VIDEOROOM, queryFilter, backFilter, sortFilter);
+    }
+
+    /**
+     * 分页查询视频直播间
+     */
+    @Override
+    public Pages queryVideoRoom4Page(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap, Map<String, Object> currentPageMap, Map<String, Object> pageNumMap) {
+        // 查询参数抽取
+        Map<String, Object> queryFilter = ValidateCommonParam.getWhereParam(queryMap);
+        // 排序
+        Map<String, Object> sortFilter = ValidateCommonParam.getSortMap(sortMap);
+        // 返回字段
+        Map<String, Object> backFilter = ValidateCommonParam.getBackMap(backMap);
+        // 当前页
+        Integer currentPage = ValidateCommonParam.getCurrentPage(currentPageMap);
+        // 每页条数
+        Integer pageNum = ValidateCommonParam.getPageNum(pageNumMap);
+
+        List<Map<String, Object>> results = basicDao.find(VideoRoom.VIDEOROOM, sortFilter, queryFilter, backFilter, currentPage, pageNum);
+        long totalRecord = basicDao.count(VideoRoom.VIDEOROOM, queryFilter);
+        return new Pages(pageNum, totalRecord, currentPage, results);
+    }
+
+    /**
+     * 根据ID修改视频直播间的状态
+     */
+    @Override
+    public long updateVideoRoomStatus(String id, Map<String, Object> param) {
+        Map<String, Object> filter = new HashMap<String, Object>();
+        filter.put(Broadcast.ID, new ObjectId(id));
+        return basicDao.updateOneBySet(VideoRoom.VIDEOROOM, filter, param, true);
+    }
+
+    /**
+     * 查询所有直播间
+     */
+    @Override
+    public List<Map<String, Object>> queryVideoRoomAll(Map<String, Object> sortMap, Map<String, Object> queryMap, Map<String, Object> backMap) {
+        // 查询参数抽取
+        Map<String, Object> queryFilter = ValidateCommonParam.getWhereParam(queryMap);
+        // 排序
+        Map<String, Object> sortFilter = ValidateCommonParam.getSortMap(sortMap);
+        // 返回字段
+        Map<String, Object> backFilter = ValidateCommonParam.getBackMap(backMap);
+        return basicDao.findAllObject(VideoRoom.VIDEOROOM, queryFilter, backFilter, sortFilter);
+    }
+
+    @Override
+    public long countVideoRoom(Map<String, Object> queryMap) {
+        /// 查询参数抽取
+        Map<String, Object> queryFilter = ValidateCommonParam.getWhereParam(queryMap);
+        return basicDao.count(VideoRoom.VIDEOROOM, queryFilter);
+    }
+
+	@Override
+	public Map<String, Object> queryVideoRoom(Map<String, Object> param) {
+		// TODO Auto-generated method stub
+		return basicDao.findOne(VideoRoom.VIDEOROOM, param);
+	}
+
+}
